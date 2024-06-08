@@ -16,10 +16,21 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="source\pch">
+      <UniqueIdentifier>{a49ac5a1-6e95-4eee-9edf-00f8904bac96}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\WinMain.cpp">
       <Filter>source\Private</Filter>
     </ClCompile>
+    <ClCompile Include="source\pch.cpp">
+      <Filter>source\pch</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\pch.h">
+      <Filter>source\pch</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

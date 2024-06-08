@@ -1,7 +1,4 @@
-#include <windows.h>
-
-#define MAX_NAME_STRING 256
-#define HInstance() GetModuleHandle(NULL)
+#include "pch.h"
 
 WCHAR		WindowClass[MAX_NAME_STRING];
 WCHAR		WindowTitle[MAX_NAME_STRING];
