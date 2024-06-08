@@ -21,8 +21,8 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 
 void InitializeGlobalVariables()
 {
-	wcscpy_s(WindowClass, TEXT("DX12Particles"));
-	wcscpy_s(WindowTitle, TEXT("MADE A WINDOW SICK !!!!!!!!!!!"));
+	LoadString(HInstance(), IDS_PERGAMENAME, WindowTitle, MAX_NAME_STRING);
+	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClass, MAX_NAME_STRING);
 	WindowWidth = 1366;
 	WindowHeight = 768;
 	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
