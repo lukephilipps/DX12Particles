@@ -1,8 +1,8 @@
 #pragma once
 
-class IApplication
+class LUKE_API IApplication
 {
-private:
+public:
 	IApplication();
 	virtual ~IApplication() = 0;
 public:

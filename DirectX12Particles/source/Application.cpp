@@ -11,10 +11,10 @@ Application::~Application()
 
 VOID Application::Initialize()
 {
-	return VOID();
+	return;
 }
 
 VOID Application::Update()
 {
-	return VOID();
+	return;
 }

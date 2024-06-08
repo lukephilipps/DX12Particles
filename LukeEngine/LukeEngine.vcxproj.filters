@@ -19,15 +19,36 @@
     <Filter Include="source\pch">
       <UniqueIdentifier>{0bca6e77-5e19-4b41-aa80-8055816fc844}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\Private\Platform">
+      <UniqueIdentifier>{2ab4a439-b715-4522-9b01-0dec21db54d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Private\Platform\W32">
+      <UniqueIdentifier>{46170760-0032-4db3-8c68-db740906cedc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Public\Platform">
+      <UniqueIdentifier>{749ed5e2-1674-453e-b57e-6ea3e40926ef}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Public\Platform\W32">
+      <UniqueIdentifier>{814e6bd8-5f12-4bd4-b8d8-9df3ff85df6b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\LukeEngine.cpp">
       <Filter>source\pch</Filter>
     </ClCompile>
+    <ClCompile Include="source\Platform\W32\IApplication.cpp">
+      <Filter>source\Private\Platform\W32</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\LukeEngine.h">
       <Filter>source\pch</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Platform\W32\IApplication.h">
+      <Filter>source\Public\Platform\W32</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Platform\W32\WinEntry.h">
+      <Filter>source\Public\Platform\W32</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

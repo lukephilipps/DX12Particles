@@ -44,6 +44,9 @@
     <ClInclude Include="source\Application.h">
       <Filter>source\Public</Filter>
     </ClInclude>
+    <ClInclude Include="..\LukeEngine\source\LukeEngine.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc">

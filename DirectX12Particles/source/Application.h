@@ -1,8 +1,9 @@
 #pragma once
+#include "Platform/W32/IApplication.h"
 
-class Application
+class Application : public IApplication
 {
-private:
+public:
 	Application();
 	~Application();
 public:
