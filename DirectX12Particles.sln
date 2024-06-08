@@ -5,6 +5,8 @@ VisualStudioVersion = 17.10.34928.147
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "DirectX12Particles", "DirectX12Particles\DirectX12Particles.vcxproj", "{56E9A64F-FA45-4476-AA3F-081F99CA8F7D}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LukeEngine", "LukeEngine\LukeEngine.vcxproj", "{8F794935-5660-4E6B-B5A2-006C4E316793}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -15,6 +17,10 @@ Global
 		{56E9A64F-FA45-4476-AA3F-081F99CA8F7D}.Debug|x64.Build.0 = Debug|x64
 		{56E9A64F-FA45-4476-AA3F-081F99CA8F7D}.Release|x64.ActiveCfg = Release|x64
 		{56E9A64F-FA45-4476-AA3F-081F99CA8F7D}.Release|x64.Build.0 = Release|x64
+		{8F794935-5660-4E6B-B5A2-006C4E316793}.Debug|x64.ActiveCfg = Debug|x64
+		{8F794935-5660-4E6B-B5A2-006C4E316793}.Debug|x64.Build.0 = Debug|x64
+		{8F794935-5660-4E6B-B5A2-006C4E316793}.Release|x64.ActiveCfg = Release|x64
+		{8F794935-5660-4E6B-B5A2-006C4E316793}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
