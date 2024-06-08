@@ -19,16 +19,17 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 	return DefWindowProc(hWnd, message, wparam, lparam);
 }
 
-int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
+void InitializeGlobalVariables()
 {
-	/* Initialize Global Variables */
 	wcscpy_s(WindowClass, TEXT("DX12Particles"));
 	wcscpy_s(WindowTitle, TEXT("MADE A WINDOW SICK !!!!!!!!!!!"));
 	WindowWidth = 1366;
 	WindowHeight = 768;
 	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
+}
 
-	/* Create Window Class */
+WNDCLASSEX CreateWindowClass()
+{
 	/* Note that this is making the window, DX12 is not initialized yet */
 	WNDCLASSEX wcex;
 
@@ -36,20 +37,23 @@ int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 	wcex.style = CS_HREDRAW | CS_VREDRAW;
 	wcex.cbClsExtra = 0;
 	wcex.cbWndExtra = 0;
-
 	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	wcex.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
-
 	wcex.hIcon = hIcon;
 	wcex.hIconSm = hIcon;
-
 	wcex.lpszClassName = WindowClass;
 	wcex.lpszMenuName = nullptr;
-
 	wcex.hInstance = HInstance();
-
 	wcex.lpfnWndProc = WindowProcess;
 
+	return wcex;
+}
+
+int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
+{
+	InitializeGlobalVariables();
+
+	WNDCLASSEX wcex = CreateWindowClass();
 	RegisterClassEx(&wcex);
 
 	/* Create and display the window */
