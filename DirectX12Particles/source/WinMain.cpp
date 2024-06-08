@@ -17,10 +17,10 @@ HICON		hIcon;
 /* ------------------------------------------------- */
 #pragma region Pre-Declarations
 
-void InitializeVariables();
-void CreateWindowClass();
-void InitializeWindow();
-void MessageLoop();
+VOID InitializeVariables();
+VOID CreateWindowClass();
+VOID InitializeWindow();
+VOID MessageLoop();
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -59,7 +59,7 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 /* ------------------------------------------------- */
 #pragma region Functions
 
-void InitializeVariables()
+VOID InitializeVariables()
 {
 	LoadString(HInstance(), IDS_PERGAMENAME, WindowTitle, MAX_NAME_STRING);
 	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClass, MAX_NAME_STRING);
@@ -68,7 +68,7 @@ void InitializeVariables()
 	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
 }
 
-void CreateWindowClass()
+VOID CreateWindowClass()
 {
 	/* Note that this is making the window, DX12 is not initialized yet */
 	WNDCLASSEX wcex;
@@ -89,7 +89,7 @@ void CreateWindowClass()
 	RegisterClassEx(&wcex);
 }
 
-void InitializeWindow()
+VOID InitializeWindow()
 {
 	HWND hWnd = CreateWindow(WindowClass, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
 
@@ -102,7 +102,7 @@ void InitializeWindow()
 	ShowWindow(hWnd, SW_SHOW);
 }
 
-void MessageLoop()
+VOID MessageLoop()
 {
 	MSG msg = { 0 };
 	while (msg.message != WM_QUIT)
