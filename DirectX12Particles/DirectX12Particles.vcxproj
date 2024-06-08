@@ -86,7 +86,14 @@
     <ClCompile Include="source\WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="resource.h" />
     <ClInclude Include="source\pch.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="DirectX12Particles.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\Icons\ParticleIco.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
