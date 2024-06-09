@@ -44,7 +44,10 @@
     <ClInclude Include="source\Application.h">
       <Filter>source\Public</Filter>
     </ClInclude>
-    <ClInclude Include="..\LukeEngine\source\LukeEngine.h">
+    <ClInclude Include="source\d3dx12.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Helpers.h">
       <Filter>source\Public</Filter>
     </ClInclude>
   </ItemGroup>

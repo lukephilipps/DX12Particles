@@ -4,12 +4,47 @@
 /* Global Variables                                  */
 /* ------------------------------------------------- */
 #pragma region GlobalVariables
-WCHAR		WindowClass[MAX_NAME_STRING];
-WCHAR		WindowTitle[MAX_NAME_STRING];
-INT			WindowWidth;
-INT			WindowHeight;
+// The number of swap chain back buffers
+const								uint8_t NumFrames = 3;
 
-HICON		hIcon;
+// Use WARP adapter
+bool								UseWarp = false;
+
+// Set to true once the DX12 objects have been initialized
+bool								IsInitialized = false;
+
+WCHAR								WindowClass[MAX_NAME_STRING];
+WCHAR								WindowTitle[MAX_NAME_STRING];
+INT									WindowWidth;
+INT									WindowHeight;
+
+HICON								hIcon;
+
+HWND								hWnd;
+RECT								WindowRect;
+
+// DX12 objects 
+ComPtr<ID3D12Device2>				Device;
+ComPtr<ID3D12CommandQueue>			CommandQueue;
+ComPtr<IDXGISwapChain4>				SwapChain;
+ComPtr<ID3D12Resource>				BackBuffers[NumFrames];
+ComPtr<ID3D12GraphicsCommandList>	CommandList;
+ComPtr<ID3D12CommandAllocator>		CommandAllocators[NumFrames];
+ComPtr<ID3D12DescriptorHeap>		RTVDescriptorHeap;
+UINT								RTVDescriptorSize;
+UINT								CurrentBackBufferIndex;
+
+// Synchronization objects
+ComPtr<ID3D12Fence> Fence;
+uint64_t FenceValue = 0;
+uint64_t FrameFenceValues[NumFrames] = { };
+HANDLE FenceEvent;
+
+// Swap chain present method vars
+bool VSync = true;
+bool TearingSupported = false;
+bool Fullscreen = false;
+
 #pragma endregion
 
 /* ------------------------------------------------- */
@@ -17,10 +52,14 @@ HICON		hIcon;
 /* ------------------------------------------------- */
 #pragma region Pre-Declarations
 
+VOID ParseCommandLineArguments();
+VOID EnableDebugLayer();
 VOID InitializeVariables();
 VOID CreateWindowClass();
 VOID InitializeWindow();
 VOID MessageLoop();
+ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp);
+ComPtr<ID3D12Device2> CreateDevice(ComPtr<IDXGIAdapter4> adapter);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -30,7 +69,7 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 /* ------------------------------------------------- */
 #pragma region Operations
 
-int CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
+INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 {
 	InitializeVariables();
 	CreateWindowClass();
@@ -58,6 +97,127 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 /* Functions                                         */
 /* ------------------------------------------------- */
 #pragma region Functions
+
+VOID ParseCommandLineArguments()
+{
+	int argc;
+	wchar_t** argv = ::CommandLineToArgvW(::GetCommandLineW(), &argc);
+
+	for (size_t i = 0; i < argc; ++i)
+	{
+		if (::wcscmp(argv[i], L"-w") == 0 || ::wcscmp(argv[i], L"--width") == 0)
+		{
+			WindowWidth = ::wcstol(argv[++i], nullptr, 10);
+		}
+		if (::wcscmp(argv[i], L"-h") == 0 || ::wcscmp(argv[i], L"--height") == 0)
+		{
+			WindowHeight = ::wcstol(argv[++i], nullptr, 10);
+		}
+		if (::wcscmp(argv[i], L"-warp") == 0 || ::wcscmp(argv[i], L"--warp") == 0)
+		{
+			// Windows Advanced Rasterization Platform
+			UseWarp = true;
+		}
+	}
+
+	// Free memory allocated by CommandLineToArgvW
+	::LocalFree(argv);
+}
+
+VOID EnableDebugLayer()
+{
+	//Unused atm
+#if defined(_DEBUG)
+	ComPtr<ID3D12Debug> debugInterface;
+	ThrowIfFailed(D3D12GetDebugInterface(IID_PPV_ARGS(&debugInterface)));
+	debugInterface->EnableDebugLayer();
+#endif
+}
+
+ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
+{
+	ComPtr<IDXGIFactory4> dxgiFactory;
+	UINT createFactoryFlags = 0;
+#if defined(_DEBUG)
+	createFactoryFlags = DXGI_CREATE_FACTORY_DEBUG;
+#endif
+
+	ThrowIfFailed(CreateDXGIFactory2(createFactoryFlags, IID_PPV_ARGS(&dxgiFactory)));
+
+	ComPtr<IDXGIAdapter1> dxgiAdapter1;
+	ComPtr<IDXGIAdapter4> dxgiAdapter4;
+
+	if (useWarp)
+	{
+		ThrowIfFailed(dxgiFactory->EnumWarpAdapter(IID_PPV_ARGS(&dxgiAdapter1)));
+		ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4));
+	}
+	else
+	{
+		SIZE_T maxDedicatedVideoMemory = 0;
+		for (UINT i = 0; dxgiFactory->EnumAdapters1(i, &dxgiAdapter1) != DXGI_ERROR_NOT_FOUND; ++i)
+		{
+			DXGI_ADAPTER_DESC1 dxgiAdapterDesc1;
+			dxgiAdapter1->GetDesc1(&dxgiAdapterDesc1);
+
+			// Check if adapter is D3D12 compatible without creating it in memory.
+			if ((dxgiAdapterDesc1.Flags & DXGI_ADAPTER_FLAG_SOFTWARE) == 0 &&
+					SUCCEEDED(D3D12CreateDevice(dxgiAdapter1.Get(), D3D_FEATURE_LEVEL_11_0, __uuidof(ID3D12Device), nullptr)) &&
+						dxgiAdapterDesc1.DedicatedVideoMemory > maxDedicatedVideoMemory)
+			{
+				maxDedicatedVideoMemory = dxgiAdapterDesc1.DedicatedVideoMemory;
+				ThrowIfFailed(dxgiAdapter1.As(&dxgiAdapter4));
+			}
+		}
+	}
+
+	return dxgiAdapter4;
+}
+
+ComPtr<ID3D12Device2> CreateDevice(ComPtr<IDXGIAdapter4> adapter)
+{
+	ComPtr<ID3D12Device2> d3d12Device2;
+	ThrowIfFailed(D3D12CreateDevice(adapter.Get(), D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&d3d12Device2)));
+
+#if defined(_DEBUG)
+	ComPtr<ID3D12InfoQueue> pInfoQueue;
+	if (SUCCEEDED(d3d12Device2.As(&pInfoQueue)))
+	{
+		pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
+		pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
+		pInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_WARNING, TRUE);
+
+		// Suppress categories of messages
+		// D3D12_MESSAGE_CATEGORY Categories[] = {};
+
+		// Ignore messages of severity
+		D3D12_MESSAGE_SEVERITY Severities[] =
+		{
+			D3D12_MESSAGE_SEVERITY_INFO
+		};
+
+		// Ignore messages of ID
+		D3D12_MESSAGE_ID DenyIds[] =
+		{
+			D3D12_MESSAGE_ID_CLEARRENDERTARGETVIEW_MISMATCHINGCLEARVALUE,
+			D3D12_MESSAGE_ID_MAP_INVALID_NULLRANGE,
+			D3D12_MESSAGE_ID_UNMAP_INVALID_NULLRANGE
+		};
+
+		D3D12_INFO_QUEUE_FILTER NewFilter = {};
+		//NewFilter.DenyList.NumCategories = _countof(Categories);
+		//NewFilter.DenyList.pCategoryList = Categories;
+		NewFilter.DenyList.NumSeverities = _countof(Severities);
+		NewFilter.DenyList.pSeverityList = Severities;
+		NewFilter.DenyList.NumIDs = _countof(DenyIds);
+		NewFilter.DenyList.pIDList = DenyIds;
+
+		ThrowIfFailed(pInfoQueue->PushStorageFilter(&NewFilter));
+	}
+#endif
+
+	return d3d12Device2;
+}
 
 VOID InitializeVariables()
 {
@@ -91,7 +251,8 @@ VOID CreateWindowClass()
 
 VOID InitializeWindow()
 {
-	HWND hWnd = CreateWindow(WindowClass, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
+	// TODO: handle creating window too large for a monitor
+	hWnd = CreateWindow(WindowClass, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
 
 	if (!hWnd)
 	{
