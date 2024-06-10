@@ -15,8 +15,8 @@ bool								IsInitialized = false;
 
 WCHAR								WindowClassName[MAX_NAME_STRING];
 WCHAR								WindowTitle[MAX_NAME_STRING];
-uint32_t							WindowWidth;
-uint32_t							WindowHeight;
+uint32_t							WindowWidth = 1280;
+uint32_t							WindowHeight = 720;
 
 HICON								hIcon;
 
@@ -54,9 +54,8 @@ bool Fullscreen = false;
 
 VOID ParseCommandLineArguments();
 VOID EnableDebugLayer();
-VOID InitializeVariables();
-VOID InitializeWindow();
-VOID MessageLoop();
+void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName);
+HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height);
 ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp);
 ComPtr<ID3D12Device2> CreateDevice(ComPtr<IDXGIAdapter4> adapter);
 ComPtr<ID3D12CommandQueue> CreateCommandQueue(ComPtr<ID3D12Device2> device, D3D12_COMMAND_LIST_TYPE type);
@@ -75,8 +74,6 @@ void Update();
 void Render();
 void Resize(uint32_t width, uint32_t height);
 void SetFullScreen(bool fullscreen);
-void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName);
-HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -88,6 +85,10 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 
 INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 {
+	LoadString(HInstance(), IDS_PERGAMENAME, WindowTitle, MAX_NAME_STRING);
+	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClassName, MAX_NAME_STRING);
+	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
+
 	SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
 	const wchar_t* windowClassName = L"DX12WindowClass";
@@ -250,6 +251,61 @@ VOID EnableDebugLayer()
 #endif
 }
 
+void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName)
+{
+	WNDCLASSEX windowClass = {};
+
+	windowClass.cbSize = sizeof(WNDCLASSEX);
+	windowClass.style = CS_HREDRAW | CS_VREDRAW;
+	windowClass.lpfnWndProc = &WindowProcess;
+	windowClass.cbClsExtra = 0;
+	windowClass.cbWndExtra = 0;
+	windowClass.hInstance = hInst;
+	windowClass.hIcon = hIcon;
+	windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	windowClass.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
+	windowClass.lpszMenuName = nullptr;
+	windowClass.lpszClassName = windowClassName;
+	windowClass.hIconSm = hIcon;
+
+	static ATOM atom = ::RegisterClassExW(&windowClass);
+	assert(atom > 0);
+}
+
+HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height)
+{
+	int screenWidth = ::GetSystemMetrics(SM_CXSCREEN);
+	int screenHeight = ::GetSystemMetrics(SM_CYSCREEN);
+
+	RECT windowRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+	::AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+
+	int windowWidth = windowRect.right - windowRect.left;
+	int windowHeight = windowRect.bottom - windowRect.top;
+
+	int windowX = std::max<int>(0, (screenWidth - windowWidth) / 2);
+	int windowY = std::max<int>(0, (screenHeight - windowHeight) / 2);
+
+	HWND hWnd = ::CreateWindowExW(
+		NULL,
+		windowClassName,
+		windowTitle,
+		WS_OVERLAPPEDWINDOW,
+		windowX,
+		windowY,
+		windowWidth,
+		windowHeight,
+		NULL,
+		NULL,
+		hInst,
+		nullptr
+	);
+
+	assert(hWnd && "Failed to create window");
+
+	return hWnd;
+}
+
 ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp)
 {
 	ComPtr<IDXGIFactory4> dxgiFactory;
@@ -390,7 +446,7 @@ ComPtr<IDXGISwapChain4> CreateSwapChain(HWND hWnd, ComPtr<ID3D12CommandQueue> co
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.BufferCount = bufferCount;
 	swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
 	swapChainDesc.Flags = CheckTearingSupport() ? DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING : 0;
 
@@ -638,99 +694,6 @@ void SetFullScreen(bool fullscreen)
 				SWP_FRAMECHANGED | SWP_NOACTIVATE);
 
 			::ShowWindow(hWnd, SW_NORMAL);
-		}
-	}
-}
-
-VOID InitializeVariables()
-{
-	LoadString(HInstance(), IDS_PERGAMENAME, WindowTitle, MAX_NAME_STRING);
-	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClassName, MAX_NAME_STRING);
-	WindowWidth = 1366;
-	WindowHeight = 768;
-	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
-}
-
-void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName)
-{
-	WNDCLASSEX windowClass = {};
-
-	windowClass.cbSize = sizeof(WNDCLASSEX);
-	windowClass.style = CS_HREDRAW | CS_VREDRAW;
-	windowClass.lpfnWndProc = &WindowProcess;
-	windowClass.cbClsExtra = 0;
-	windowClass.cbWndExtra = 0;
-	windowClass.hInstance = hInst;
-	windowClass.hIcon = hIcon;
-	windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	windowClass.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
-	windowClass.lpszMenuName = nullptr;
-	windowClass.lpszClassName = windowClassName;
-	windowClass.hIconSm = hIcon;
-
-	static ATOM atom = ::RegisterClassExW(&windowClass);
-	assert(atom > 0);
-}
-
-HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height)
-{
-	int screenWidth = ::GetSystemMetrics(SM_CXSCREEN);
-	int screenHeight = ::GetSystemMetrics(SM_CYSCREEN);
-
-	RECT windowRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
-	::AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
-
-	int windowWidth = windowRect.right - windowRect.left;
-	int windowHeight = windowRect.bottom - windowRect.top;
-
-	int windowX = std::max<int>(0, (screenWidth - windowWidth) / 2);
-	int windowY = std::max<int>(0, (screenHeight - windowHeight) / 2);
-
-	HWND hWnd = ::CreateWindowExW(
-		NULL,
-		windowClassName,
-		windowTitle,
-		WS_OVERLAPPEDWINDOW,
-		windowX,
-		windowY,
-		windowWidth,
-		windowHeight,
-		NULL,
-		NULL,
-		hInst,
-		nullptr
-	);
-
-	assert(hWnd && "Failed to create window");
-
-	return hWnd;
-}
-
-VOID InitializeWindow()
-{
-	// TODO: handle creating window too large for a monitor
-	hWnd = CreateWindow(WindowClassName, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
-
-	if (!hWnd)
-	{
-		MessageBox(0, L"Failed to Create Window!", 0, 0);
-		PostQuitMessage(0);
-	}
-
-	ShowWindow(hWnd, SW_SHOW);
-}
-
-VOID MessageLoop()
-{
-	MSG msg = { 0 };
-	while (msg.message != WM_QUIT)
-	{
-		// If there are window messages then process them.
-		if (PeekMessage(&msg, 0, 0, 0, PM_REMOVE))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-			Update();
 		}
 	}
 }
