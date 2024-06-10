@@ -13,10 +13,10 @@ bool								UseWarp = false;
 // Set to true once the DX12 objects have been initialized
 bool								IsInitialized = false;
 
-WCHAR								WindowClass[MAX_NAME_STRING];
+WCHAR								WindowClassName[MAX_NAME_STRING];
 WCHAR								WindowTitle[MAX_NAME_STRING];
-INT									WindowWidth;
-INT									WindowHeight;
+uint32_t							WindowWidth;
+uint32_t							WindowHeight;
 
 HICON								hIcon;
 
@@ -75,6 +75,9 @@ void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, u
 void Update();
 void Render();
 void Resize(uint32_t width, uint32_t height);
+void SetFullScreen(bool fullscreen)
+void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName);
+HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -496,10 +499,55 @@ void Resize(uint32_t width, uint32_t height)
 	}
 }
 
+void SetFullScreen(bool fullscreen)
+{
+	if (Fullscreen != fullscreen)
+	{
+		Fullscreen = fullscreen;
+
+		if (Fullscreen)
+		{
+			// Store restorable window dimensions
+			::GetWindowRect(hWnd, &WindowRect);
+
+			UINT windowStyle = WS_OVERLAPPEDWINDOW & (WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+
+			::SetWindowLongW(hWnd, GWL_STYLE, windowStyle);
+
+			HMONITOR hMonitor = ::MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST);
+			MONITORINFOEX monitorInfo = {};
+			monitorInfo.cbSize = sizeof(MONITORINFOEX);
+			::GetMonitorInfo(hMonitor, &monitorInfo);
+
+			::SetWindowPos(hWnd, HWND_TOP,
+				monitorInfo.rcMonitor.left,
+				monitorInfo.rcMonitor.top,
+				monitorInfo.rcMonitor.right - monitorInfo.rcMonitor.left,
+				monitorInfo.rcMonitor.bottom - monitorInfo.rcMonitor.top,
+				SWP_FRAMECHANGED | SWP_NOACTIVATE);
+
+			::ShowWindow(hWnd, SW_MAXIMIZE);
+		}
+		else
+		{
+			::SetWindowLong(hWnd, GWL_STYLE, WS_OVERLAPPEDWINDOW);
+
+			::SetWindowPos(hWnd, HWND_NOTOPMOST,
+				WindowRect.left,
+				WindowRect.top,
+				WindowRect.right - WindowRect.left,
+				WindowRect.bottom - WindowRect.top,
+				SWP_FRAMECHANGED | SWP_NOACTIVATE);
+
+			::ShowWindow(hWnd, SW_NORMAL);
+		}
+	}
+}
+
 VOID InitializeVariables()
 {
 	LoadString(HInstance(), IDS_PERGAMENAME, WindowTitle, MAX_NAME_STRING);
-	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClass, MAX_NAME_STRING);
+	LoadString(HInstance(), IDS_WINDOWCLASS, WindowClassName, MAX_NAME_STRING);
 	WindowWidth = 1366;
 	WindowHeight = 768;
 	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
@@ -518,7 +566,7 @@ VOID CreateWindowClass()
 	wcex.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
 	wcex.hIcon = hIcon;
 	wcex.hIconSm = hIcon;
-	wcex.lpszClassName = WindowClass;
+	wcex.lpszClassName = WindowClassName;
 	wcex.lpszMenuName = nullptr;
 	wcex.hInstance = HInstance();
 	wcex.lpfnWndProc = WindowProcess;
@@ -526,10 +574,65 @@ VOID CreateWindowClass()
 	RegisterClassEx(&wcex);
 }
 
+void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName)
+{
+	WNDCLASSEX windowClass = {};
+
+	windowClass.cbSize = sizeof(WNDCLASSEX);
+	windowClass.style = CS_HREDRAW | CS_VREDRAW;
+	windowClass.lpfnWndProc = &WindowProcess;
+	windowClass.cbClsExtra = 0;
+	windowClass.cbWndExtra = 0;
+	windowClass.hInstance = hInst;
+	windowClass.hIcon = hIcon;
+	windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
+	windowClass.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
+	windowClass.lpszMenuName = nullptr;
+	windowClass.lpszClassName = WindowClassName;
+	windowClass.hIconSm = hIcon;
+
+	static ATOM atom = ::RegisterClassExW(&windowClass);
+	assert(atom > 0);
+}
+
+HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height)
+{
+	int screenWidth = ::GetSystemMetrics(SM_CXSCREEN);
+	int screenHeight = ::GetSystemMetrics(SM_CYSCREEN);
+
+	RECT windowRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+	::AdjustWindowRect(&windowRect, WS_OVERLAPPEDWINDOW, FALSE);
+
+	int windowWidth = windowRect.right - windowRect.left;
+	int windowHeight = windowRect.bottom - windowRect.top;
+
+	int windowX = std::max<int>(0, (screenWidth - windowWidth) / 2);
+	int windowY = std::max<int>(0, (screenHeight - windowHeight) / 2);
+
+	HWND hWnd = ::CreateWindowExW(
+		NULL,
+		windowClassName,
+		windowTitle,
+		WS_OVERLAPPEDWINDOW,
+		windowX,
+		windowY,
+		windowWidth,
+		windowHeight,
+		NULL,
+		NULL,
+		hInst,
+		nullptr
+	);
+
+	assert(hWnd && "Failed to create window");
+
+	return hWnd;
+}
+
 VOID InitializeWindow()
 {
 	// TODO: handle creating window too large for a monitor
-	hWnd = CreateWindow(WindowClass, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
+	hWnd = CreateWindow(WindowClassName, WindowTitle, WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, WindowWidth, WindowHeight, nullptr, nullptr, HInstance(), nullptr);
 
 	if (!hWnd)
 	{

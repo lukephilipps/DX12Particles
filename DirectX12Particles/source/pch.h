@@ -19,6 +19,10 @@
 #undef max
 #endif
 
+#if defined(CreateWindow)
+#undef CreateWindow
+#endif
+
 #include <wrl.h>
 using namespace Microsoft::WRL;
 
