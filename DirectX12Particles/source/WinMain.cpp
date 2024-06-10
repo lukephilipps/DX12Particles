@@ -72,6 +72,8 @@ HANDLE CreateEventHandle();
 uint64_t Signal(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue);
 void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration = std::chrono::milliseconds::max());
 void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue, HANDLE fenceEvent);
+void Update();
+void Render();
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -378,7 +380,7 @@ uint64_t Signal(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fen
 	return fenceValueForSignal;
 }
 
-void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration = std::chrono::milliseconds::max())
+void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration)
 {
 	if (fence->GetCompletedValue() < fenceValue)
 	{
@@ -391,6 +393,79 @@ void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, u
 {
 	uint64_t fenceValueForSignal = Signal(commandQueue, fence, fenceValue);
 	WaitForFenceValue(fence, fenceValueForSignal, fenceEvent);
+}
+
+void Update()
+{
+	static uint64_t frameCounter = 0;
+	static double elapsedSeconds = 0.0;
+	static std::chrono::high_resolution_clock clock;
+	static auto t0 = clock.now();
+
+	++frameCounter;
+	auto t1 = clock.now();
+	auto deltaTime = t1 - t0;
+	t0 = t1;
+
+	elapsedSeconds += deltaTime.count() * 1e-9;
+	if (elapsedSeconds > 1.0)
+	{
+		char buffer[500];
+		auto fps = frameCounter / elapsedSeconds;
+		sprintf_s(buffer, 500, "FPS: %f\n", fps);
+		OutputDebugStringA(buffer);
+
+		frameCounter = 0;
+		elapsedSeconds = 0.0;
+	}
+}
+
+void Render()
+{
+	auto commandAllocator = CommandAllocators[CurrentBackBufferIndex];
+	auto backBuffer = BackBuffers[CurrentBackBufferIndex];
+
+	// Prepare command list for recording next frame
+	commandAllocator->Reset();
+	CommandList->Reset(commandAllocator.Get(), nullptr);
+
+	// Must transition RT to RENDER_TARGET state before clearing
+	{
+		// Create a transition resource barrier
+		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(backBuffer.Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+		CommandList->ResourceBarrier(1, &barrier);
+
+		FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+		CD3DX12_CPU_DESCRIPTOR_HANDLE rtv(RTVDescriptorHeap->GetCPUDescriptorHandleForHeapStart(), CurrentBackBufferIndex, RTVDescriptorSize);
+
+		CommandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+	}
+
+	// Present the RTV
+	{
+		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(backBuffer.Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
+		CommandList->ResourceBarrier(1, &barrier);
+
+		ThrowIfFailed(CommandList->Close());
+
+		ID3D12CommandList* const commandLists[] = {
+			CommandList.Get()
+		};
+		CommandQueue->ExecuteCommandLists(_countof(commandLists), commandLists);
+
+		UINT syncInterval = VSync ? 1 : 0;
+		UINT presentFlags = TearingSupported && !VSync ? DXGI_PRESENT_ALLOW_TEARING : 0;
+		ThrowIfFailed(SwapChain->Present(syncInterval, presentFlags));
+
+		FrameFenceValues[CurrentBackBufferIndex] = Signal(CommandQueue, Fence, FenceValue);
+
+		// Gets the correct back buffer index as FLIP_DISCARD model can be nonsequential
+		CurrentBackBufferIndex = SwapChain->GetCurrentBackBufferIndex();
+
+		WaitForFenceValue(Fence, FrameFenceValues[CurrentBackBufferIndex], FenceEvent);
+	}
 }
 
 VOID InitializeVariables()
@@ -447,6 +522,7 @@ VOID MessageLoop()
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
+			Update();
 		}
 	}
 }
