@@ -67,6 +67,10 @@ ComPtr<ID3D12DescriptorHeap> CreateDescriptorHeap(ComPtr<ID3D12Device> device, D
 void UpdateRenderTargetViews(ComPtr<ID3D12Device2> device, ComPtr<IDXGISwapChain4> swapChain, ComPtr<ID3D12DescriptorHeap> descriptorHeap);
 ComPtr<ID3D12CommandAllocator> CreateCommandAllocator(ComPtr<ID3D12Device2> device, D3D12_COMMAND_LIST_TYPE type);
 ComPtr<ID3D12GraphicsCommandList> CreateCommandList(ComPtr<ID3D12Device2> device, ComPtr<ID3D12CommandAllocator> commandAllocator, D3D12_COMMAND_LIST_TYPE type);
+ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> device);
+HANDLE CreateEventHandle();
+uint64_t Signal(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue);
+void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration = std::chrono::milliseconds::max());
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -344,6 +348,42 @@ ComPtr<ID3D12GraphicsCommandList> CreateCommandList(ComPtr<ID3D12Device2> device
 	ThrowIfFailed(commandList->Close());
 
 	return commandList;
+}
+
+ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> device)
+{
+	ComPtr<ID3D12Fence> fence;
+
+	ThrowIfFailed(device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&fence)));
+
+	return fence;
+}
+
+HANDLE CreateEventHandle()
+{
+	HANDLE fenceEvent;
+
+	fenceEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
+	assert(fenceEvent && "Failed to create fence event.");
+
+	return fenceEvent;
+}
+
+uint64_t Signal(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue)
+{
+	uint64_t fenceValueForSignal = ++fenceValue;
+	ThrowIfFailed(commandQueue->Signal(fence.Get(), fenceValueForSignal));
+
+	return fenceValueForSignal;
+}
+
+void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration = std::chrono::milliseconds::max())
+{
+	if (fence->GetCompletedValue() < fenceValue)
+	{
+		ThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
+		::WaitForSingleObject(fenceEvent, static_cast<DWORD>(duration.count()));
+	}
 }
 
 VOID InitializeVariables()
