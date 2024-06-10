@@ -55,7 +55,6 @@ bool Fullscreen = false;
 VOID ParseCommandLineArguments();
 VOID EnableDebugLayer();
 VOID InitializeVariables();
-VOID CreateWindowClass();
 VOID InitializeWindow();
 VOID MessageLoop();
 ComPtr<IDXGIAdapter4> GetAdapter(bool useWarp);
@@ -89,10 +88,60 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 
 INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 {
-	InitializeVariables();
-	CreateWindowClass();
-	InitializeWindow();
-	MessageLoop();
+	SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+
+	const wchar_t* windowClassName = L"DX12WindowClass";
+	ParseCommandLineArguments();
+	EnableDebugLayer();
+
+	TearingSupported = CheckTearingSupport();
+
+	RegisterWindowClass(HInstance(), windowClassName);
+	hWnd = CreateWindow(windowClassName, HInstance(), L"WINDOW NAMEEEEEE", WindowWidth, WindowHeight);
+
+	::GetWindowRect(hWnd, &WindowRect);
+
+	ComPtr<IDXGIAdapter4> dxgiAdapter4 = GetAdapter(UseWarp);
+
+	Device = CreateDevice(dxgiAdapter4);
+
+	CommandQueue = CreateCommandQueue(Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+	SwapChain = CreateSwapChain(hWnd, CommandQueue, WindowWidth, WindowHeight, NumFrames);
+
+	CurrentBackBufferIndex = SwapChain->GetCurrentBackBufferIndex();
+
+	RTVDescriptorHeap = CreateDescriptorHeap(Device, D3D12_DESCRIPTOR_HEAP_TYPE_RTV, NumFrames);
+	RTVDescriptorSize = Device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
+	UpdateRenderTargetViews(Device, SwapChain, RTVDescriptorHeap);
+
+	for (int i = 0; i < NumFrames; ++i)
+	{
+		CommandAllocators[i] = CreateCommandAllocator(Device, D3D12_COMMAND_LIST_TYPE_DIRECT);
+	}
+	CommandList = CreateCommandList(Device, CommandAllocators[CurrentBackBufferIndex], D3D12_COMMAND_LIST_TYPE_DIRECT);
+
+	Fence = CreateFence(Device);
+	FenceEvent = CreateEventHandle();
+
+	IsInitialized = true;
+
+	::ShowWindow(hWnd, SW_SHOW);
+
+	MSG msg = {};
+	while (msg.message != WM_QUIT)
+	{
+		if (::PeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+		{
+			::TranslateMessage(&msg);
+			::DispatchMessage(&msg);
+		}
+	}
+
+	Flush(CommandQueue, Fence, FenceValue, FenceEvent);
+
+	::CloseHandle(FenceEvent);
 
 	return 0;
 }
@@ -602,27 +651,6 @@ VOID InitializeVariables()
 	hIcon = LoadIcon(HInstance(), MAKEINTRESOURCE(IDI_MAINICON));
 }
 
-VOID CreateWindowClass()
-{
-	/* Note that this is making the window, DX12 is not initialized yet */
-	WNDCLASSEX wcex;
-
-	wcex.cbSize = sizeof(WNDCLASSEX);
-	wcex.style = CS_HREDRAW | CS_VREDRAW;
-	wcex.cbClsExtra = 0;
-	wcex.cbWndExtra = 0;
-	wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
-	wcex.hIcon = hIcon;
-	wcex.hIconSm = hIcon;
-	wcex.lpszClassName = WindowClassName;
-	wcex.lpszMenuName = nullptr;
-	wcex.hInstance = HInstance();
-	wcex.lpfnWndProc = WindowProcess;
-
-	RegisterClassEx(&wcex);
-}
-
 void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName)
 {
 	WNDCLASSEX windowClass = {};
@@ -637,7 +665,7 @@ void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName)
 	windowClass.hCursor = LoadCursor(nullptr, IDC_ARROW);
 	windowClass.hbrBackground = (HBRUSH)GetStockObject(NULL_BRUSH);
 	windowClass.lpszMenuName = nullptr;
-	windowClass.lpszClassName = WindowClassName;
+	windowClass.lpszClassName = windowClassName;
 	windowClass.hIconSm = hIcon;
 
 	static ATOM atom = ::RegisterClassExW(&windowClass);
