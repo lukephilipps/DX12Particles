@@ -71,6 +71,7 @@ ComPtr<ID3D12Fence> CreateFence(ComPtr<ID3D12Device2> device);
 HANDLE CreateEventHandle();
 uint64_t Signal(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue);
 void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fenceEvent, std::chrono::milliseconds duration = std::chrono::milliseconds::max());
+void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue, HANDLE fenceEvent);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -384,6 +385,12 @@ void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fe
 		ThrowIfFailed(fence->SetEventOnCompletion(fenceValue, fenceEvent));
 		::WaitForSingleObject(fenceEvent, static_cast<DWORD>(duration.count()));
 	}
+}
+
+void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue, HANDLE fenceEvent)
+{
+	uint64_t fenceValueForSignal = Signal(commandQueue, fence, fenceValue);
+	WaitForFenceValue(fence, fenceValueForSignal, fenceEvent);
 }
 
 VOID InitializeVariables()
