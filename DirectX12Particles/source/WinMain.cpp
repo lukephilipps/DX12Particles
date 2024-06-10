@@ -74,6 +74,7 @@ void WaitForFenceValue(ComPtr<ID3D12Fence> fence, uint64_t fenceValue, HANDLE fe
 void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, uint64_t& fenceValue, HANDLE fenceEvent);
 void Update();
 void Render();
+void Resize(uint32_t width, uint32_t height);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
 
 #pragma endregion
@@ -97,9 +98,9 @@ LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lp
 {
 	switch (message)
 	{
-	case WM_DESTROY:
-		PostQuitMessage(0);
-		break;
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			break;
 	}
 
 	return DefWindowProc(hWnd, message, wparam, lparam);
@@ -465,6 +466,33 @@ void Render()
 		CurrentBackBufferIndex = SwapChain->GetCurrentBackBufferIndex();
 
 		WaitForFenceValue(Fence, FrameFenceValues[CurrentBackBufferIndex], FenceEvent);
+	}
+}
+
+void Resize(uint32_t width, uint32_t height)
+{
+	if (WindowWidth != width || WindowHeight != height)
+	{
+		WindowWidth = std::max(1u, width);
+		WindowHeight = std::max(1u, height);
+
+		Flush(CommandQueue, Fence, FenceValue, FenceEvent);
+
+		for (int i = 0; i < NumFrames; ++i)
+		{
+			// Release all back buffers and set all fence values to currentBackBuffer
+			BackBuffers[i].Reset();
+			FrameFenceValues[i] = FrameFenceValues[CurrentBackBufferIndex];
+		}
+
+		DXGI_SWAP_CHAIN_DESC swapChainDesc = {};
+		ThrowIfFailed(SwapChain->GetDesc(&swapChainDesc));
+		ThrowIfFailed(SwapChain->ResizeBuffers(NumFrames, WindowWidth, WindowHeight, swapChainDesc.BufferDesc.Format, swapChainDesc.Flags));
+
+		// Current back buffer index could have changed, get current index known by app
+		CurrentBackBufferIndex = SwapChain->GetCurrentBackBufferIndex();
+
+		UpdateRenderTargetViews(Device, SwapChain, RTVDescriptorHeap);
 	}
 }
 
