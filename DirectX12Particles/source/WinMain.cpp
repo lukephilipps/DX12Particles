@@ -75,7 +75,7 @@ void Flush(ComPtr<ID3D12CommandQueue> commandQueue, ComPtr<ID3D12Fence> fence, u
 void Update();
 void Render();
 void Resize(uint32_t width, uint32_t height);
-void SetFullScreen(bool fullscreen)
+void SetFullScreen(bool fullscreen);
 void RegisterWindowClass(HINSTANCE hInst, const wchar_t* windowClassName);
 HWND CreateWindow(const wchar_t* windowClassName, HINSTANCE hInst, const wchar_t* windowTitle, uint32_t width, uint32_t height);
 LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam);
@@ -97,16 +97,65 @@ INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 	return 0;
 }
 
-LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wparam, LPARAM lparam)
+LRESULT CALLBACK WindowProcess(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	switch (message)
+	if (IsInitialized)
 	{
-		case WM_DESTROY:
-			PostQuitMessage(0);
+		switch (message)
+		{
+		case WM_PAINT:
+			Update();
+			Render();
 			break;
+		case WM_SYSKEYDOWN:
+		case WM_KEYDOWN:
+		{
+			bool alt = (::GetAsyncKeyState(VK_MENU) & 0x8000) != 0;
+
+			switch (wParam)
+			{
+			case 'V':
+				VSync = !VSync;
+				break;
+			case VK_ESCAPE:
+				::PostQuitMessage(0);
+				break;
+			case VK_RETURN:
+				if (alt)
+				{
+			case VK_F11:
+				SetFullScreen(!Fullscreen);
+				}
+				break;
+			}
+		}
+			break;
+		case WM_SYSCHAR:
+			break;
+		case WM_SIZE:
+		{
+			RECT clientRect = {};
+			::GetClientRect(hWnd, &clientRect);
+
+			int width = clientRect.right - clientRect.left;
+			int height = clientRect.bottom - clientRect.top;
+
+			Resize(width, height);
+		}
+			break;
+		case WM_DESTROY:
+			::PostQuitMessage(0);
+			break;
+		default:
+			return ::DefWindowProcW(hWnd, message, wParam, lParam);
+		}
+	}
+	else
+	{
+		return ::DefWindowProcW(hWnd, message, wParam, lParam);
 	}
 
-	return DefWindowProc(hWnd, message, wparam, lparam);
+	return 0;
 }
 
 #pragma endregion
