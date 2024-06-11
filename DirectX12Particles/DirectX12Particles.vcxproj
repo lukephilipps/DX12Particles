@@ -93,15 +93,21 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="source\Application.cpp" />
+    <ClCompile Include="source\CommandQueue.cpp" />
+    <ClCompile Include="source\Game.cpp" />
     <ClCompile Include="source\pch.cpp" />
+    <ClCompile Include="source\Window.cpp" />
     <ClCompile Include="source\WinMain.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />
     <ClInclude Include="source\Application.h" />
+    <ClInclude Include="source\CommandQueue.h" />
     <ClInclude Include="source\d3dx12.h" />
+    <ClInclude Include="source\Game.h" />
     <ClInclude Include="source\Helpers.h" />
     <ClInclude Include="source\pch.h" />
+    <ClInclude Include="source\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc" />

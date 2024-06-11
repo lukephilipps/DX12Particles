@@ -37,3 +37,8 @@ using namespace Microsoft::WRL;
 
 #define MAX_NAME_STRING 256
 #define HInstance() GetModuleHandle(NULL)
+
+#include "Application.h"
+#include "Window.h"
+#include "Game.h"
+#include "CommandQueue.h"

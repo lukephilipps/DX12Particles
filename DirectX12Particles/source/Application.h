@@ -1,12 +1,20 @@
 #pragma once
-#include "Platform/W32/IApplication.h"
+#include <memory>
+#include <string>
 
-class Application : public IApplication
+class Window;
+
+class Application
 {
 public:
-	Application();
-	~Application();
-public:
-	VOID Initialize();
-	VOID Update();
+	static void Create(HINSTANCE hInst);
+	static void Destroy();
+	static Application& Get();
+	bool IsTearingSupported() const;
+
+	std::shared_ptr<Window> CreateRenderWindow();
+protected:
+
+private:
+
 };

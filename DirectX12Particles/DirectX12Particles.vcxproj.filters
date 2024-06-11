@@ -33,6 +33,15 @@
     <ClCompile Include="source\Application.cpp">
       <Filter>source\Private</Filter>
     </ClCompile>
+    <ClCompile Include="source\CommandQueue.cpp">
+      <Filter>source\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Game.cpp">
+      <Filter>source\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Window.cpp">
+      <Filter>source\Private</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\pch.h">
@@ -48,6 +57,15 @@
       <Filter>source\Public</Filter>
     </ClInclude>
     <ClInclude Include="source\Helpers.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\CommandQueue.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Game.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Window.h">
       <Filter>source\Public</Filter>
     </ClInclude>
   </ItemGroup>
