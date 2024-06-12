@@ -4,7 +4,9 @@
 #include <memory>
 #include <string>
 
-class Game
+class Window;
+
+class Game : public std::enable_shared_from_this<Game>
 {
 public:
 
@@ -16,7 +18,7 @@ public:
 
 	virtual bool Initialize();
 	virtual bool LoadContent() = 0;
-	virtual bool UnloadContent() = 0;
+	virtual void UnloadContent() = 0;
 	virtual void Destroy();
 
 protected:
@@ -40,7 +42,7 @@ protected:
 
 private:
 
-	std::wstring& Name;
+	std::wstring Name;
 	int Width;
 	int Height;
 	bool VSync;
