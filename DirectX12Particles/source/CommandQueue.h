@@ -13,7 +13,7 @@ public:
 	CommandQueue(D3D12_COMMAND_LIST_TYPE type);
 	virtual ~CommandQueue();
 
-	ComPtr<ID3D12GraphicsCommandList> GetCommandList();
+	ComPtr<ID3D12GraphicsCommandList2> GetCommandList();
 
 	uint64_t ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList);
 
