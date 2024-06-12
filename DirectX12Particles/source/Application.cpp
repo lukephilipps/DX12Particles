@@ -280,8 +280,8 @@ std::shared_ptr<Window> Application::GetWindowByName(const std::wstring& windowN
 
 int Application::Run(std::shared_ptr<Game> game)
 {
-	//if (!game->Initialize()) return 1;
-	//if (!game->LoadContent()) return 2;
+	if (!game->Initialize()) return 1;
+	if (!game->LoadContent()) return 2;
 
 	MSG msg = { 0 };
 	while (msg.message != WM_QUIT)
@@ -295,8 +295,8 @@ int Application::Run(std::shared_ptr<Game> game)
 
 	Flush();
 
-	//game->UnloadContent();
-	//game->Destroy();
+	game->UnloadContent();
+	game->Destroy();
 
 	return static_cast<int>(msg.wParam);
 }
@@ -334,9 +334,9 @@ std::shared_ptr<CommandQueue> Application::GetCommandQueue(D3D12_COMMAND_LIST_TY
 
 void Application::Flush()
 {
-	/*DirectCommandQueue->Flush();
+	DirectCommandQueue->Flush();
 	ComputeCommandQueue->Flush();
-	CopyCommandQueue->Flush();*/
+	CopyCommandQueue->Flush();
 }
 
 ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(UINT numDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE type)

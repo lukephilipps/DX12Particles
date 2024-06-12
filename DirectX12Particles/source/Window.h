@@ -29,13 +29,13 @@ public:
 	int GetWindowHeight() const;
 
 	bool IsVSync() const;
-	bool SetVSync(bool vSync);
-	bool ToggleVSync();
+	void SetVSync(bool vSync);
+	void ToggleVSync();
 
-	bool IsFullscreen() const;
+	bool IsFullScreen() const;
 
-	void SetFullscreen(bool fullscreen);
-	void ToggleFullscreen();
+	void SetFullScreen(bool fullScreen);
+	void ToggleFullScreen();
 
 	void Show();
 	void Hide();
@@ -46,7 +46,7 @@ public:
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
 
-	Microsoft::WRL::ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
+	ComPtr<ID3D12Resource> GetCurrentBackBuffer() const;
 
 protected:
 
@@ -55,27 +55,25 @@ protected:
     friend class Game;
 
     Window() = delete;
-    Window(HWND hWnd, const std::wstring& windowName, int clientWidth, int clientHeight, bool vSync);
+    Window(HWND hWnd, const std::wstring& windowName, int windowWidth, int windowHeight, bool vSync);
     virtual ~Window();
 
     // Register a Game with this window. This allows
     // the window to callback functions in the Game class.
-    void RegisterCallbacks(std::shared_ptr<Game> pGame);
+    void RegisterCallbacks(std::shared_ptr<Game> game);
 
+    // Events
     virtual void OnUpdate(UpdateEventArgs& e);
     virtual void OnRender(RenderEventArgs& e);
-
     virtual void OnKeyPressed(KeyEventArgs& e);
     virtual void OnKeyReleased(KeyEventArgs& e);
-
     virtual void OnMouseMoved(MouseMotionEventArgs& e);
     virtual void OnMouseButtonPressed(MouseButtonEventArgs& e);
     virtual void OnMouseButtonReleased(MouseButtonEventArgs& e);
     virtual void OnMouseWheel(MouseWheelEventArgs& e);
-
     virtual void OnResize(ResizeEventArgs& e);
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain4> CreateSwapChain();
+    ComPtr<IDXGISwapChain4> CreateSwapChain();
 
     void UpdateRenderTargetViews();
 
@@ -84,28 +82,28 @@ private:
     Window(const Window& copy) = delete;
     Window& operator=(const Window& other) = delete;
 
-    HWND m_hWnd;
+    HWND WindowHandle;
 
-    std::wstring m_WindowName;
+    std::wstring WindowName;
 
-    int m_ClientWidth;
-    int m_ClientHeight;
-    bool m_VSync;
-    bool m_Fullscreen;
+    int WindowWidth;
+    int WindowHeight;
+    bool VSync;
+    bool FullScreen;
 
-    HighResolutionClock m_UpdateClock;
-    HighResolutionClock m_RenderClock;
-    uint64_t m_FrameCounter;
+    HighResolutionClock UpdateClock;
+    HighResolutionClock RenderClock;
+    uint64_t FrameCounter;
 
-    std::weak_ptr<Game> m_pGame;
+    std::weak_ptr<Game> pGame;
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain4> m_dxgiSwapChain;
-    Microsoft::WRL::ComPtr<ID3D12DescriptorHeap> m_d3d12RTVDescriptorHeap;
-    Microsoft::WRL::ComPtr<ID3D12Resource> m_d3d12BackBuffers[BufferCount];
+    ComPtr<IDXGISwapChain4> dxgiSwapChain;
+    ComPtr<ID3D12DescriptorHeap> d3d12RTVDescriptorHeap;
+    ComPtr<ID3D12Resource> d3d12BackBuffers[BufferCount];
 
-    UINT m_RTVDescriptorSize;
-    UINT m_CurrentBackBufferIndex;
+    UINT RTVDescriptorSize;
+    UINT CurrentBackBufferIndex;
 
-    RECT m_WindowRect;
-    bool m_IsTearingSupported;
+    RECT WindowRect;
+    bool IsTearingSupported;
 };
