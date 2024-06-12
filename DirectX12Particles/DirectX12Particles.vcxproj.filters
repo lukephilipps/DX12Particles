@@ -42,6 +42,9 @@
     <ClCompile Include="source\Window.cpp">
       <Filter>source\Private</Filter>
     </ClCompile>
+    <ClCompile Include="source\HighResolutionClock.cpp">
+      <Filter>source\Private</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="source\pch.h">
@@ -66,6 +69,15 @@
       <Filter>source\Public</Filter>
     </ClInclude>
     <ClInclude Include="source\Window.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Events.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\HighResolutionClock.h">
+      <Filter>source\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\KeyCodes.h">
       <Filter>source\Public</Filter>
     </ClInclude>
   </ItemGroup>
