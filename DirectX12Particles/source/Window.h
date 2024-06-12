@@ -42,6 +42,7 @@ public:
 
 	UINT GetCurrentBackBufferIndex() const;
 
+    // Present the swapchains back buffer to the screen and return current back buffer index
 	UINT Present();
 
 	D3D12_CPU_DESCRIPTOR_HANDLE GetCurrentRenderTargetView() const;
@@ -97,9 +98,9 @@ private:
 
     std::weak_ptr<Game> pGame;
 
-    ComPtr<IDXGISwapChain4> dxgiSwapChain;
-    ComPtr<ID3D12DescriptorHeap> d3d12RTVDescriptorHeap;
-    ComPtr<ID3D12Resource> d3d12BackBuffers[BufferCount];
+    ComPtr<IDXGISwapChain4>         dxgiSwapChain;
+    ComPtr<ID3D12DescriptorHeap>    d3d12RTVDescriptorHeap;
+    ComPtr<ID3D12Resource>          d3d12BackBuffers[BufferCount];
 
     UINT RTVDescriptorSize;
     UINT CurrentBackBufferIndex;
