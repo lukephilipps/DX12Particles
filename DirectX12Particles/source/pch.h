@@ -33,7 +33,6 @@ using namespace Microsoft::WRL;
 #include "Helpers.h"
 
 #include "../resource.h"
-#include "LukeEngine.h"
 
 #define MAX_NAME_STRING 256
 #define HInstance() GetModuleHandle(NULL)

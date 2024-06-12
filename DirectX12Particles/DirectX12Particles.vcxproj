@@ -61,7 +61,7 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;C:\Users\Luke\source\repos\DirectX12Particles\LukeEngine\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -81,7 +81,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;C:\Users\Luke\source\repos\DirectX12Particles\LukeEngine\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -118,11 +118,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Icons\ParticleIco.ico" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\LukeEngine\LukeEngine.vcxproj">
-      <Project>{8f794935-5660-4e6b-b5a2-006c4e316793}</Project>
-    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
