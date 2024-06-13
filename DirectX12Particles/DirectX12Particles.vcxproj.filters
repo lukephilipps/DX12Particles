@@ -4,81 +4,67 @@
     <Filter Include="source">
       <UniqueIdentifier>{9acf54b8-c9c9-4b9a-a5bf-81605ed10905}</UniqueIdentifier>
     </Filter>
-    <Filter Include="source\Private">
-      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
-      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
-    </Filter>
-    <Filter Include="source\Public">
-      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
-      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
-    </Filter>
     <Filter Include="Resources">
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="source\pch">
-      <UniqueIdentifier>{a49ac5a1-6e95-4eee-9edf-00f8904bac96}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Resources\Icons">
       <UniqueIdentifier>{f7780887-aa52-4233-92c1-c1e2c897e748}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\Framework">
+      <UniqueIdentifier>{a8cb4619-cfe1-49da-a140-fcf53ff8a473}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Framework\pch">
+      <UniqueIdentifier>{a49ac5a1-6e95-4eee-9edf-00f8904bac96}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source\Framework\Private">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="source\Framework\Public">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="source\CubeRenderer">
+      <UniqueIdentifier>{03eaebe5-2516-4203-b6b9-44556a0a1940}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="source\WinMain.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="source\pch.cpp">
-      <Filter>source\pch</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Application.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="source\CommandQueue.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Game.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="source\Window.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-    <ClCompile Include="source\HighResolutionClock.cpp">
-      <Filter>source\Private</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="source\pch.h">
-      <Filter>source\pch</Filter>
-    </ClInclude>
     <ClInclude Include="resource.h">
       <Filter>Resources</Filter>
     </ClInclude>
-    <ClInclude Include="source\Application.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\Application.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\d3dx12.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\CommandQueue.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\Helpers.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\d3dx12.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\CommandQueue.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\Events.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\Game.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\Game.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\Window.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\Helpers.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\Events.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\HighResolutionClock.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\HighResolutionClock.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\KeyCodes.h">
+      <Filter>source\Framework\Public</Filter>
     </ClInclude>
-    <ClInclude Include="source\KeyCodes.h">
-      <Filter>source\Public</Filter>
+    <ClInclude Include="source\Framework\Window.h">
+      <Filter>source\Framework\Public</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Framework\pch.h">
+      <Filter>source\Framework\pch</Filter>
+    </ClInclude>
+    <ClInclude Include="source\CubeRenderer\CubeRenderer.h">
+      <Filter>source\CubeRenderer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -90,5 +76,31 @@
     <Image Include="Assets\Icons\ParticleIco.ico">
       <Filter>Resources\Icons</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Framework\Application.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\CommandQueue.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\Game.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\HighResolutionClock.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\Window.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\WinMain.cpp">
+      <Filter>source\Framework\Private</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\pch.cpp">
+      <Filter>source\Framework\pch</Filter>
+    </ClCompile>
+    <ClCompile Include="source\CubeRenderer\CubeRenderer.cpp">
+      <Filter>source\CubeRenderer</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

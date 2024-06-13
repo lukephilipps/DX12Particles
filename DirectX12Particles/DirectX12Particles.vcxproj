@@ -44,11 +44,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)\Build\LukeEngine\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)\Build\$(ProjectName)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)\$(ProjectName)\Intermediate\$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)\Build\LukeEngine\$(Configuration)\</OutDir>
+    <OutDir>$(SolutionDir)\Build\$(ProjectName)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)\$(ProjectName)\Intermediate\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -61,7 +61,7 @@
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source\Framework;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -81,7 +81,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Luke\source\repos\DirectX12Particles\DirectX12Particles\source\Framework;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -92,32 +92,34 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="source\Application.cpp" />
-    <ClCompile Include="source\CommandQueue.cpp" />
-    <ClCompile Include="source\Game.cpp" />
-    <ClCompile Include="source\HighResolutionClock.cpp" />
-    <ClCompile Include="source\pch.cpp" />
-    <ClCompile Include="source\Window.cpp" />
-    <ClCompile Include="source\WinMain.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="resource.h" />
-    <ClInclude Include="source\Application.h" />
-    <ClInclude Include="source\CommandQueue.h" />
-    <ClInclude Include="source\d3dx12.h" />
-    <ClInclude Include="source\Events.h" />
-    <ClInclude Include="source\Game.h" />
-    <ClInclude Include="source\Helpers.h" />
-    <ClInclude Include="source\HighResolutionClock.h" />
-    <ClInclude Include="source\KeyCodes.h" />
-    <ClInclude Include="source\pch.h" />
-    <ClInclude Include="source\Window.h" />
+    <ClInclude Include="source\CubeRenderer\CubeRenderer.h" />
+    <ClInclude Include="source\Framework\Application.h" />
+    <ClInclude Include="source\Framework\CommandQueue.h" />
+    <ClInclude Include="source\Framework\d3dx12.h" />
+    <ClInclude Include="source\Framework\Events.h" />
+    <ClInclude Include="source\Framework\Game.h" />
+    <ClInclude Include="source\Framework\Helpers.h" />
+    <ClInclude Include="source\Framework\HighResolutionClock.h" />
+    <ClInclude Include="source\Framework\KeyCodes.h" />
+    <ClInclude Include="source\Framework\pch.h" />
+    <ClInclude Include="source\Framework\Window.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Icons\ParticleIco.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\CubeRenderer\CubeRenderer.cpp" />
+    <ClCompile Include="source\Framework\Application.cpp" />
+    <ClCompile Include="source\Framework\CommandQueue.cpp" />
+    <ClCompile Include="source\Framework\Game.cpp" />
+    <ClCompile Include="source\Framework\HighResolutionClock.cpp" />
+    <ClCompile Include="source\Framework\pch.cpp" />
+    <ClCompile Include="source\Framework\Window.cpp" />
+    <ClCompile Include="source\Framework\WinMain.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
