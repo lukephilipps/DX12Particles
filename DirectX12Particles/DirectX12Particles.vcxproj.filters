@@ -103,4 +103,12 @@
       <Filter>source\CubeRenderer</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="source\CubeRenderer\f_PositionColor.hlsl">
+      <Filter>source\CubeRenderer</Filter>
+    </FxCompile>
+    <FxCompile Include="source\CubeRenderer\v_Passthrough.hlsl">
+      <Filter>source\CubeRenderer</Filter>
+    </FxCompile>
+  </ItemGroup>
 </Project>
