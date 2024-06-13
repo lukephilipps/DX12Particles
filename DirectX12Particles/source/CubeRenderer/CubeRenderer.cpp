@@ -43,3 +43,39 @@ CubeRenderer::CubeRenderer(const std::wstring& name, int width, int height, bool
 	, ContentLoaded(false)
 {
 }
+
+bool CubeRenderer::LoadContent()
+{
+	return true;
+}
+
+void CubeRenderer::UnloadContent()
+{
+
+}
+
+
+void CubeRenderer::OnUpdate(UpdateEventArgs& e)
+{
+
+}
+
+void CubeRenderer::OnRender(RenderEventArgs& e)
+{
+
+}
+
+void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
+{
+
+}
+
+void CubeRenderer::OnMouseWheel(MouseWheelEventArgs& e)
+{
+
+}
+
+void CubeRenderer::OnResize(ResizeEventArgs& e)
+{
+
+}
