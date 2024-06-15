@@ -189,7 +189,7 @@ bool CubeRenderer::LoadContent()
 
 void CubeRenderer::UnloadContent()
 {
-
+	ContentLoaded = false;
 }
 
 void CubeRenderer::ResizeDepthBuffer(int width, int height)
@@ -349,10 +349,32 @@ void CubeRenderer::OnRender(RenderEventArgs& e)
 
 void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
 {
+	super::OnKeyPressed(e);
 
+	switch (e.Key)
+	{
+	case KeyCode::Escape:
+		Application::Get().Quit(0);
+		break;
+	case KeyCode::Enter:
+		if (e.Alt)
+		{
+	case KeyCode::F11:
+		pWindow->ToggleFullScreen();
+		break;
+		}
+	case KeyCode::V:
+		pWindow->ToggleVSync();
+		break;
+	}
 }
 
 void CubeRenderer::OnMouseWheel(MouseWheelEventArgs& e)
 {
+	FoV -= e.WheelDelta;
+	FoV = std::clamp(FoV, 12.0f, 90.0f);
 
+	char buffer[256];
+	sprintf_s(buffer, "FoV: %f\n", FoV);
+	OutputDebugStringA(buffer);
 }
