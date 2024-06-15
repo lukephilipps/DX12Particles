@@ -85,7 +85,7 @@ void Application::Initialize()
 
 void Application::Create(HINSTANCE hInst)
 {
-	if (Singleton)
+	if (!Singleton)
 	{
 		Singleton = new Application(hInst);
 		Singleton->Initialize();

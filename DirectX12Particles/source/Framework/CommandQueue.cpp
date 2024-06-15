@@ -15,7 +15,7 @@ CommandQueue::CommandQueue(D3D12_COMMAND_LIST_TYPE type)
 	desc.NodeMask = 0;
 
 	ThrowIfFailed(device->CreateCommandQueue(&desc, IID_PPV_ARGS(&d3d12CommandQueue)));
-	ThrowIfFailed(device->CreateFence(FenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d12CommandQueue)));
+	ThrowIfFailed(device->CreateFence(FenceValue, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&d3d12Fence)));
 
 	FenceEvent = ::CreateEvent(NULL, FALSE, FALSE, NULL);
 	assert(FenceEvent && "Failed to create fence event.");

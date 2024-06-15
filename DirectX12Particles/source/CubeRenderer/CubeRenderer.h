@@ -5,7 +5,7 @@
 
 #include <DirectXMath.h>
 
-class CubeRenderer : Game
+class CubeRenderer : public Game
 {
 public:
 

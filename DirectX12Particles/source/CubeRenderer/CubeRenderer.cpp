@@ -115,8 +115,8 @@ bool CubeRenderer::LoadContent()
 	ThrowIfFailed(D3DReadFileToBlob(L"f_PositionColor.cso", &fragmentShaderBlob));
 
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-		{"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{"COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
 	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
@@ -194,17 +194,157 @@ void CubeRenderer::UnloadContent()
 
 void CubeRenderer::ResizeDepthBuffer(int width, int height)
 {
+	if (ContentLoaded)
+	{
+		Application::Get().Flush();
 
+		width = std::max(1, width);
+		height = std::max(1, height);
+
+		auto device = Application::Get().GetDevice();
+
+		D3D12_CLEAR_VALUE optimizedClearValue = {};
+		optimizedClearValue.Format = DXGI_FORMAT_D32_FLOAT;
+		optimizedClearValue.DepthStencil = { 1.0f, 0 };
+
+		CD3DX12_RESOURCE_DESC dsDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_D32_FLOAT, width, height, 1, 0, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL);
+
+		// Create a committed resource in GPU mem
+		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+
+		ThrowIfFailed(device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&dsDesc,
+			D3D12_RESOURCE_STATE_DEPTH_WRITE,
+			&optimizedClearValue,
+			IID_PPV_ARGS(&DepthBuffer)
+		));
+
+		D3D12_DEPTH_STENCIL_VIEW_DESC dsv = {};
+		dsv.Format = DXGI_FORMAT_D32_FLOAT;
+		dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+		dsv.Texture2D.MipSlice = 0;
+		dsv.Flags = D3D12_DSV_FLAG_NONE;
+
+		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, DSVHeap->GetCPUDescriptorHandleForHeapStart());
+	}
+}
+
+void CubeRenderer::OnResize(ResizeEventArgs& e)
+{
+	if (e.Width != GetWindowWidth() || e.Height != GetWindowHeight())
+	{
+		super::OnResize(e);
+
+		Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(e.Width), static_cast<float>(e.Height));
+
+		ResizeDepthBuffer(e.Width, e.Height);
+	}
 }
 
 void CubeRenderer::OnUpdate(UpdateEventArgs& e)
 {
+	static uint64_t frameCount = 0;
+	static double totalTime = 0.0;
 
+	super::OnUpdate(e);
+
+	totalTime += e.ElapsedTime;
+	++frameCount;
+
+	if (totalTime > 1.0)
+	{
+		double fps = frameCount / totalTime;
+
+		char buffer[512];
+		sprintf_s(buffer, "FPS: %f\n", fps);
+		OutputDebugStringA(buffer);
+
+		frameCount = 0;
+		totalTime = 0.0;
+	}
+
+	// Update model matrix
+	float angle = static_cast<float>(e.TotalTime * 90.0);
+	const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
+	ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+
+	// Update view matrix
+	const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
+	const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+	const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
+	ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+
+	// Update projection matrix
+	float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
+	ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
+}
+
+void CubeRenderer::TransitionResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
+{
+	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), beforeState, afterState);
+
+	commandList->ResourceBarrier(1, &barrier);
 }
 
 void CubeRenderer::OnRender(RenderEventArgs& e)
 {
+	super::OnRender(e);
 
+	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+	auto commandList = commandQueue->GetCommandList(); // in a state to be written to, doesn't need to be reset
+
+	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
+	auto backBuffer = pWindow->GetCurrentBackBuffer();
+	auto rtv = pWindow->GetCurrentRenderTargetView();
+	auto dsv = DSVHeap->GetCPUDescriptorHandleForHeapStart();
+
+	// Clear render targets
+	{
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
+
+		FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+
+		FLOAT clearDepth = 1.0f;
+		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
+	}
+
+	// Set up PSO and root signature
+	commandList->SetPipelineState(PipelineState.Get()); // Binds PSO to render pipeline
+	commandList->SetGraphicsRootSignature(RootSignature.Get()); // Must do even though set in PSO
+
+	// Set up input assembler
+	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
+	commandList->IASetIndexBuffer(&IndexBufferView);
+
+	// Set up rasterizer state
+	commandList->RSSetViewports(1, &Viewport);
+	commandList->RSSetScissorRects(1, &ScissorRect);
+
+	// Bind render targets
+	commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+
+	// Update root parameters
+	XMMATRIX mvpMatrix = XMMatrixMultiply(ModelMatrix, ViewMatrix);
+	mvpMatrix = XMMatrixMultiply(mvpMatrix, ProjectionMatrix);
+	commandList->SetGraphicsRoot32BitConstants(0, sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
+
+	// Draw
+	commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 0, 0);
+
+	// Present
+	{
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+
+		FenceValues[currentBackBufferIndex] = commandQueue->ExecuteCommandList(commandList);
+
+		currentBackBufferIndex = pWindow->Present();
+
+		commandQueue->WaitForFenceValue(FenceValues[currentBackBufferIndex]);
+	}
 }
 
 void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
@@ -213,11 +353,6 @@ void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
 }
 
 void CubeRenderer::OnMouseWheel(MouseWheelEventArgs& e)
-{
-
-}
-
-void CubeRenderer::OnResize(ResizeEventArgs& e)
 {
 
 }

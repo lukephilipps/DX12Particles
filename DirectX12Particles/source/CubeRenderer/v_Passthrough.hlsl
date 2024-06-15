@@ -13,8 +13,8 @@ struct app_data
 
 struct v2f
 {
-    float4 Position : SV_Position;
     float4 Color : COLOR;
+    float4 Position : SV_Position;
 };
 
 v2f main(app_data i)
