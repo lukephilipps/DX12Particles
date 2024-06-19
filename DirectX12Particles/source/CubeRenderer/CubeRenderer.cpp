@@ -134,7 +134,7 @@ bool CubeRenderer::LoadContent()
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
 	
 	CD3DX12_ROOT_PARAMETER1 rootParameters[1];
-	rootParameters[0].InitAsConstants(sizeof(XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+	rootParameters[0].InitAsConstants(3 * sizeof(XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
 	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
 	rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
@@ -328,12 +328,11 @@ void CubeRenderer::OnRender(RenderEventArgs& e)
 	commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 	// Update root parameters
-	XMMATRIX mvpMatrix = XMMatrixMultiply(ModelMatrix, ViewMatrix);
-	mvpMatrix = XMMatrixMultiply(mvpMatrix, ProjectionMatrix);
-	commandList->SetGraphicsRoot32BitConstants(0, sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
+	XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
+	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
 
 	// Draw
-	commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 0, 0);
+	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
 
 	// Present
 	{
