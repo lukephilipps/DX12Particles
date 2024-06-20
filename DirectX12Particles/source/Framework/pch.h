@@ -12,12 +12,7 @@
 #include <shellapi.h>
 
 // min and max conflict with member functions, only use the ones from <algorithm>
-#if defined(min)
-#undef min
-#endif
-#if defined(max)
-#undef max
-#endif
+#define NOMINMAX
 
 #if defined(CreateWindow)
 #undef CreateWindow

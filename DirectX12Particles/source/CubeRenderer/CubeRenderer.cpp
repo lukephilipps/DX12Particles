@@ -198,8 +198,8 @@ void CubeRenderer::ResizeDepthBuffer(int width, int height)
 	{
 		Application::Get().Flush();
 
-		width = std::max(1, width);
-		height = std::max(1, height);
+		width = max(1, width);
+		height = max(1, height);
 
 		auto device = Application::Get().GetDevice();
 
@@ -329,9 +329,13 @@ void CubeRenderer::OnRender(RenderEventArgs& e)
 
 	// Update root parameters
 	XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
+	XMMATRIX mvpMatrix2[3] = { XMMatrixTranslation(0, 3, 0), ViewMatrix, ProjectionMatrix};
 	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
 
 	// Draw
+	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
+
+	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix2, 0);
 	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
 
 	// Present

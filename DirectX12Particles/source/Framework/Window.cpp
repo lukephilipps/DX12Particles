@@ -232,8 +232,8 @@ void Window::OnResize(ResizeEventArgs& e)
 {
 	if (WindowWidth != e.Width || WindowHeight != e.Height)
 	{
-		WindowWidth = std::max(1, e.Width);
-		WindowHeight = std::max(1, e.Height);
+		WindowWidth = max(1, e.Width);
+		WindowHeight = max(1, e.Height);
 
 		Application::Get().Flush();
 
