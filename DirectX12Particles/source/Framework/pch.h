@@ -7,6 +7,10 @@
 #include <d3dcompiler.h>
 #include <DirectXMath.h>
 
+#ifdef _DEBUG
+#include <dxgidebug.h>
+#endif
+
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
