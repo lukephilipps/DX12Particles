@@ -1,9 +1,5 @@
 #pragma once
 
-#include <Events.h>
-#include <memory>
-#include <string>
-
 class Window;
 
 class Game : public std::enable_shared_from_this<Game>

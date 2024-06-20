@@ -1,17 +1,5 @@
 #pragma once
 
-#include <Windows.h>
-#include <wrl.h>
-
-#include <d3d12.h>
-#include <dxgi1_6.h>
-
-#include "Events.h"
-#include "HighResolutionClock.h"
-
-#include <string>
-#include <memory>
-
 class Game;
 
 class Window

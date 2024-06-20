@@ -1,9 +1,5 @@
 #pragma once
 
-#include <d3d12.h>
-#include <wrl.h>
-
-#include <cstdint>
 #include <queue>
 
 class CommandQueue

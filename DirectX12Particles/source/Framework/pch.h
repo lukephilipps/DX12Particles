@@ -14,23 +14,31 @@
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
 #include <shellapi.h>
+#include <wrl.h>
+using namespace Microsoft::WRL;
 
 // min and max conflict with member functions, only use the ones from <algorithm>
 #define NOMINMAX
 
-#if defined(CreateWindow)
-#undef CreateWindow
-#endif
+// DirectX apps don't need GDI
+#define NODRAWTEXT
+#define NOGDI
+#define NOBITMAP
 
-#include <wrl.h>
-using namespace Microsoft::WRL;
+// WinHelp is deprecated
+#define NOHELP
 
 #include <algorithm>
 #include <cassert>
 #include <chrono>
+#include <memory>
+#include <string>
+#include <cstdint>
+#include <exception>
 
 #include "Helpers.h"
-
+#include "Events.h"
+#include "HighResolutionClock.h"
 #include "../../resource.h"
 
 #define MAX_NAME_STRING 256
