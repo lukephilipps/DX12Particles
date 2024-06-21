@@ -1,7 +1,7 @@
 #include "pch.h"
 
 #include "Application.h"
-#include "../CubeRenderer/CubeRenderer.h"
+#include "../ParticleGame/ParticleGame.h"
 
 void ReportLiveObjects()
 {
@@ -18,7 +18,7 @@ INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 
 	Application::Create(HInstance());
 	{
-		std::shared_ptr<CubeRenderer> demo = std::make_shared<CubeRenderer>(L"ROTATING CUBE", 1280, 720);
+		std::shared_ptr<ParticleGame> demo = std::make_shared<ParticleGame>(L"ROTATING CUBE", 1280, 720);
 		retCode = Application::Get().Run(demo);
 	}
 	Application::Destroy();

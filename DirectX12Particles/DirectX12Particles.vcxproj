@@ -68,6 +68,9 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>d3d12.lib;D3Dcompiler.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <FxCompile>
+      <ShaderModel>6.2</ShaderModel>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -104,6 +107,7 @@
     <ClInclude Include="source\Framework\KeyCodes.h" />
     <ClInclude Include="source\Framework\pch.h" />
     <ClInclude Include="source\Framework\Window.h" />
+    <ClInclude Include="source\ParticleGame\ParticleGame.h" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc" />
@@ -120,19 +124,24 @@
     <ClCompile Include="source\Framework\pch.cpp" />
     <ClCompile Include="source\Framework\Window.cpp" />
     <ClCompile Include="source\Framework\WinMain.cpp" />
+    <ClCompile Include="source\ParticleGame\ParticleGame.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\CubeRenderer\f_PositionColor.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Pixel</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
     </FxCompile>
     <FxCompile Include="source\CubeRenderer\v_Passthrough.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Vertex</ShaderType>
-      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">5.1</ShaderModel>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">5.1</ShaderModel>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\f_PositionColor.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\v_Passthrough.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
     </FxCompile>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

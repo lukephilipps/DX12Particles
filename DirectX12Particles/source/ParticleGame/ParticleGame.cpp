@@ -1,5 +1,5 @@
 #include "pch.h"
-#include "CubeRenderer.h"
+#include "ParticleGame.h"
 
 #include "Application.h"
 #include "CommandQueue.h"
@@ -33,7 +33,7 @@ static WORD Indices[36] = {
 	4, 0, 3, 4, 3, 7
 };
 
-CubeRenderer::CubeRenderer(const std::wstring& name, int width, int height, bool vSync)
+ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
 	: super(name, width, height, vSync)
 	, ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
 	, Viewport(CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)))
@@ -42,7 +42,7 @@ CubeRenderer::CubeRenderer(const std::wstring& name, int width, int height, bool
 {
 }
 
-void CubeRenderer::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
+void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
 	size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags)
 {
 	auto device = Application::Get().GetDevice();
@@ -82,7 +82,7 @@ void CubeRenderer::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 	}
 }
 
-bool CubeRenderer::LoadContent()
+bool ParticleGame::LoadContent()
 {
 	auto device = Application::Get().GetDevice();
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
@@ -183,12 +183,12 @@ bool CubeRenderer::LoadContent()
 	return true;
 }
 
-void CubeRenderer::UnloadContent()
+void ParticleGame::UnloadContent()
 {
 	ContentLoaded = false;
 }
 
-void CubeRenderer::ResizeDepthBuffer(int width, int height)
+void ParticleGame::ResizeDepthBuffer(int width, int height)
 {
 	if (ContentLoaded)
 	{
@@ -227,7 +227,7 @@ void CubeRenderer::ResizeDepthBuffer(int width, int height)
 	}
 }
 
-void CubeRenderer::OnResize(ResizeEventArgs& e)
+void ParticleGame::OnResize(ResizeEventArgs& e)
 {
 	if (e.Width != GetWindowWidth() || e.Height != GetWindowHeight())
 	{
@@ -239,7 +239,7 @@ void CubeRenderer::OnResize(ResizeEventArgs& e)
 	}
 }
 
-void CubeRenderer::OnUpdate(UpdateEventArgs& e)
+void ParticleGame::OnUpdate(UpdateEventArgs& e)
 {
 	static uint64_t frameCount = 0;
 	static double totalTime = 0.0;
@@ -277,14 +277,14 @@ void CubeRenderer::OnUpdate(UpdateEventArgs& e)
 	ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
 }
 
-void CubeRenderer::TransitionResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
+void ParticleGame::TransitionResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
 	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), beforeState, afterState);
 
 	commandList->ResourceBarrier(1, &barrier);
 }
 
-void CubeRenderer::OnRender(RenderEventArgs& e)
+void ParticleGame::OnRender(RenderEventArgs& e)
 {
 	super::OnRender(e);
 
@@ -346,7 +346,7 @@ void CubeRenderer::OnRender(RenderEventArgs& e)
 	}
 }
 
-void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
+void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 {
 	super::OnKeyPressed(e);
 
@@ -368,7 +368,7 @@ void CubeRenderer::OnKeyPressed(KeyEventArgs& e)
 	}
 }
 
-void CubeRenderer::OnMouseWheel(MouseWheelEventArgs& e)
+void ParticleGame::OnMouseWheel(MouseWheelEventArgs& e)
 {
 	FoV -= e.WheelDelta;
 	FoV = std::clamp(FoV, 12.0f, 90.0f);

@@ -28,6 +28,9 @@
     <Filter Include="source\CubeRenderer">
       <UniqueIdentifier>{03eaebe5-2516-4203-b6b9-44556a0a1940}</UniqueIdentifier>
     </Filter>
+    <Filter Include="source\ParticleGame">
+      <UniqueIdentifier>{331133ac-f91b-4c9c-80f0-81643f1690ca}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h">
@@ -66,6 +69,9 @@
     <ClInclude Include="source\CubeRenderer\CubeRenderer.h">
       <Filter>source\CubeRenderer</Filter>
     </ClInclude>
+    <ClInclude Include="source\ParticleGame\ParticleGame.h">
+      <Filter>source\ParticleGame</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc">
@@ -102,6 +108,9 @@
     <ClCompile Include="source\CubeRenderer\CubeRenderer.cpp">
       <Filter>source\CubeRenderer</Filter>
     </ClCompile>
+    <ClCompile Include="source\ParticleGame\ParticleGame.cpp">
+      <Filter>source\ParticleGame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="source\CubeRenderer\f_PositionColor.hlsl">
@@ -109,6 +118,12 @@
     </FxCompile>
     <FxCompile Include="source\CubeRenderer\v_Passthrough.hlsl">
       <Filter>source\CubeRenderer</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\f_PositionColor.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\v_Passthrough.hlsl">
+      <Filter>source\ParticleGame</Filter>
     </FxCompile>
   </ItemGroup>
 </Project>
