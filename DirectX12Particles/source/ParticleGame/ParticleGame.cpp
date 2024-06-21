@@ -154,11 +154,15 @@ bool ParticleGame::LoadContent()
 		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+		CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 	} pipelineStateStream;
 
 	D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 	rtvFormats.NumRenderTargets = 1;
 	rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+	CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
+	rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
 
 	pipelineStateStream.pRootSignature = RootSignature.Get();
 	pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout)};
@@ -167,6 +171,7 @@ bool ParticleGame::LoadContent()
 	pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(fragmentShaderBlob.Get());
 	pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	pipelineStateStream.RTVFormats = rtvFormats;
+	pipelineStateStream.Rasterizer = rasterizerDesc;
 
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
 		sizeof(PipelineStateStream), &pipelineStateStream
@@ -329,7 +334,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
 
 	// Draw
-	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
+	commandList->DrawIndexedInstanced(_countof(Indices) / 4, 2, 0, 0, 0);
 
 	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix2, 0);
 	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
