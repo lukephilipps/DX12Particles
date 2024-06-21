@@ -15,7 +15,7 @@
 #include <Windows.h>
 #include <shellapi.h>
 #include <wrl.h>
-using namespace Microsoft::WRL;
+using Microsoft::WRL::ComPtr;
 
 // min and max conflict with member functions, only use the ones from <algorithm>
 #define NOMINMAX
