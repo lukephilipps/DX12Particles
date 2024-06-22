@@ -181,7 +181,7 @@ bool ParticleGame::LoadContent()
 		UINT compileFlags = 0;
 #endif
 
-		// Get path to .exe (also where .cso files are)
+		// Get path to .exe directory (where .cso files are)
 		WCHAR assetsPath[512];
 		GetModuleFileNameW(nullptr, assetsPath, _countof(assetsPath));
 		std::wstring assetPathString = assetsPath;
@@ -378,14 +378,13 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 	// Update root parameters
-	XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
-	XMMATRIX mvpMatrix2[3] = { XMMatrixTranslation(0, 3 + drawOffset, 0), ViewMatrix, ProjectionMatrix};
-	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
+	//XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
+	//commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
+
+	ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
+	commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 	// Draw
-	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
-
-	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix2, 0);
 	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
 
 	// Present
