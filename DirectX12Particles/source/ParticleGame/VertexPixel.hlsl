@@ -19,7 +19,7 @@ struct v2f
     float4 Position : SV_Position;
 };
 
-v2f main(app_data i, uint instanceID : SV_InstanceID)
+v2f VSMain(app_data i, uint instanceID : SV_InstanceID)
 {
     v2f o;
     
@@ -27,4 +27,10 @@ v2f main(app_data i, uint instanceID : SV_InstanceID)
     o.Color = float4(i.Color, 1.0f);
 
     return o;
+}
+
+float4 PSMain(v2f i) : SV_Target
+{
+    return i.Color;
+
 }

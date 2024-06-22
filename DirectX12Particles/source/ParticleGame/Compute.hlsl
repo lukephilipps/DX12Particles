@@ -18,6 +18,7 @@ struct IndirectCommand
 cbuffer RootConstants : register(b0)
 {
     float test; // For testing passing constants
+    float commandCount;
 };
 
 StructuredBuffer<SceneConstantBuffer> cbv : register(t0); // SRV: Wrapped constant buffers
@@ -34,19 +35,6 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
     // than commands.
     if (index < commandCount)
     {
-        // Project the left and right bounds of the triangle into homogenous space.
-        float4 left = float4(-xOffset, 0.0f, zOffset, 1.0f) + cbv[index].offset;
-        left = mul(left, cbv[index].projection);
-        left /= left.w;
-
-        float4 right = float4(xOffset, 0.0f, zOffset, 1.0f) + cbv[index].offset;
-        right = mul(right, cbv[index].projection);
-        right /= right.w;
-
-        // Only draw triangles that are within the culling space.
-        if (-cullOffset < right.x && left.x < cullOffset)
-        {
-            outputCommands.Append(inputCommands[index]);
-        }
+        
     }
 }

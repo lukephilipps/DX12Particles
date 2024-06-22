@@ -108,79 +108,122 @@ bool ParticleGame::LoadContent()
 
 	DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
-	ComPtr<ID3DBlob> vertexShaderBlob;
-	ThrowIfFailed(D3DReadFileToBlob(L"v_Passthrough.cso", &vertexShaderBlob));
+	D3D12_DESCRIPTOR_HEAP_DESC SRV2UAV1HeapDesc = {};
+	SRV2UAV1HeapDesc.NumDescriptors = 3 * Window::BufferCount; // 3 for 2 SRVs and 1 UAV
+	SRV2UAV1HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	ThrowIfFailed(device->CreateDescriptorHeap(&SRV2UAV1HeapDesc, IID_PPV_ARGS(&SRV2UAV1Heap)));
 
-	ComPtr<ID3DBlob> fragmentShaderBlob;
-	ThrowIfFailed(D3DReadFileToBlob(L"f_PositionColor.cso", &fragmentShaderBlob));
+	// Create root signatures
+	{
+		D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
+		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
+		if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+		{
+			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+		}
+
+		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
+			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT; // Omit flag if input assembler not required
+			/*D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | 
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS | 
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS | 
+			D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;*/
+	
+		CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, D3D12_SHADER_VISIBILITY_VERTEX);
+
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
+		rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
+
+		// Serialize the root signature into binary
+		ComPtr<ID3DBlob> rootSignatureBlob;
+		ComPtr<ID3DBlob> errorBlob;
+
+		// Rewrites the root sig in version 1.0 even if passed in as 1.1 (if needed)
+		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
+
+		// Create the root signature YIPPEE
+		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&RootSignature)));
+
+		// Create compute signature with a descriptor table
+		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
+		// 2 compute parameters, our descriptor table and root constants
+		CD3DX12_ROOT_PARAMETER1 computeRootParameters[2];
+		computeRootParameters[0].InitAsDescriptorTable(2, ranges);
+		computeRootParameters[1].InitAsConstants(2, 0);
+
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC computeRootSignatureDescription;
+		computeRootSignatureDescription.Init_1_1(_countof(computeRootParameters), computeRootParameters);
+
+		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&computeRootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
+		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&ComputeRootSignature)));
+	}
 
 	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
 		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
 		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 	};
 
-	D3D12_FEATURE_DATA_ROOT_SIGNATURE featureData = {};
-	featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_1;
-	if (FAILED(device->CheckFeatureSupport(D3D12_FEATURE_ROOT_SIGNATURE, &featureData, sizeof(featureData))))
+	// Create PSO's
 	{
-		featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
+		ComPtr<ID3DBlob> vertexShader;
+		ComPtr<ID3DBlob> fragmentShader;
+		ComPtr<ID3DBlob> computeShader;
+		ComPtr<ID3DBlob> error;
+
+#if defined(_DEBUG)
+		// Enable better shader debugging with the graphics debugging tools.
+		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#else
+		UINT compileFlags = 0;
+#endif
+
+		// Get path to .exe (also where .cso files are)
+		std::wstring assetsPath = _SOLUTIONDIR;
+		assetsPath += L"DirectX12Particles\\source\\ParticleGame\\";
+
+		std::wstring c = (assetsPath + L"VertexPixel.hlsl");
+
+		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"VertexPixel.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_6_2", compileFlags, 0, &vertexShader, &error));
+		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"VertexPixel.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_6_2", compileFlags, 0, &fragmentShader, &error));
+		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"Compute.hlsl").c_str(), nullptr, nullptr, "CSMain", "vs_6_2", compileFlags, 0, &computeShader, &error));
+
+		struct PipelineStateStream
+		{
+			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+			CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+			CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+			CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
+			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+			//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
+		} pipelineStateStream;
+
+		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
+		rtvFormats.NumRenderTargets = 1;
+		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+		//CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
+		//rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+
+		pipelineStateStream.pRootSignature = RootSignature.Get();
+		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
+		pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
+		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(fragmentShader.Get());
+		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		pipelineStateStream.RTVFormats = rtvFormats;
+		//pipelineStateStream.Rasterizer = rasterizerDesc;
+
+		D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
+			sizeof(PipelineStateStream), &pipelineStateStream
+		};
+		ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&PipelineState)));
 	}
-
-	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | // Omit flag if input assembler not required
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | 
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS | 
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS | 
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
-	
-	CD3DX12_ROOT_PARAMETER1 rootParameters[1];
-	rootParameters[0].InitAsConstants(3 * sizeof(XMMATRIX) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
-
-	CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-	rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
-
-	// Serialize the root signature into binary
-	ComPtr<ID3DBlob> rootSignatureBlob;
-	ComPtr<ID3DBlob> errorBlob;
-
-	// Rewrites the root sig in version 1.0 even if passed in as 1.1 (if needed)
-	ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
-
-	// Create the root signature YIPPEE
-	ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&RootSignature)));
-
-	struct PipelineStateStream
-	{
-		CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-		CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
-		CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
-		CD3DX12_PIPELINE_STATE_STREAM_VS VS;
-		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
-		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-		//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
-	} pipelineStateStream;
-
-	D3D12_RT_FORMAT_ARRAY rtvFormats = {};
-	rtvFormats.NumRenderTargets = 1;
-	rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-
-	//CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-	//rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
-
-	pipelineStateStream.pRootSignature = RootSignature.Get();
-	pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout)};
-	pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-	pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShaderBlob.Get());
-	pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(fragmentShaderBlob.Get());
-	pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-	pipelineStateStream.RTVFormats = rtvFormats;
-	//pipelineStateStream.Rasterizer = rasterizerDesc;
-
-	D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
-		sizeof(PipelineStateStream), &pipelineStateStream
-	};
-	ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&PipelineState)));
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);
 	commandQueue->WaitForFenceValue(fenceValue);
@@ -258,7 +301,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 	totalTime += e.ElapsedTime;
 	++frameCount;
 
-	deltaTime = e.ElapsedTime;
+	deltaTime = (float)e.ElapsedTime;
 
 	if (totalTime > 1.0)
 	{

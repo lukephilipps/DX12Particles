@@ -119,13 +119,10 @@
     <FxCompile Include="source\CubeRenderer\v_Passthrough.hlsl">
       <Filter>source\CubeRenderer</Filter>
     </FxCompile>
-    <FxCompile Include="source\ParticleGame\f_PositionColor.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
-    <FxCompile Include="source\ParticleGame\v_Passthrough.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
     <FxCompile Include="source\ParticleGame\Compute.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\VertexPixel.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
   </ItemGroup>

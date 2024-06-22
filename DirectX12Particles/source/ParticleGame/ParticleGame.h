@@ -3,6 +3,8 @@
 #include "Game.h"
 #include "Window.h"
 
+using namespace DirectX;
+
 class ParticleGame : public Game
 {
 public:
