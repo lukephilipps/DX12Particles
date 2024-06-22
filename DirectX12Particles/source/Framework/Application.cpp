@@ -339,14 +339,14 @@ void Application::Flush()
 	CopyCommandQueue->Flush();
 }
 
-ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(UINT numDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE type)
+ComPtr<ID3D12DescriptorHeap> Application::CreateDescriptorHeap(UINT numDescriptors, D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flags)
 {
 	ComPtr<ID3D12DescriptorHeap> descriptorHeap;
 
 	D3D12_DESCRIPTOR_HEAP_DESC desc = {};
 	desc.NumDescriptors = numDescriptors;
 	desc.Type = type;
-	desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+	desc.Flags = flags;
 	desc.NodeMask = 0;
 
 	ThrowIfFailed(d3d12Device->CreateDescriptorHeap(&desc, IID_PPV_ARGS(&descriptorHeap)));

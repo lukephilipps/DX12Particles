@@ -10,7 +10,7 @@ ConstantBuffer<ModelViewProjection> MVPConstantBuffer : register(b0);
 struct app_data
 {
     float3 Position : POSITION;
-    float3 Color : COLOR;    
+    float3 Color : COLOR;
 };
 
 struct v2f

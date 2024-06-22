@@ -14,24 +14,24 @@ struct VertexPosColor
 };
 
 static VertexPosColor Vertices[8] = {
-	{ XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },/*
+	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f, 0.0f, 1.0f) }*/
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f, 0.0f, 1.0f) }
 };
 
 // Triangles
-static WORD Indices[6] = {
-	0, 1, 2, 0, 2, 3,/*
+static WORD Indices[36] = {
+	0, 1, 2, 0, 2, 3,
 	4, 6, 5, 4, 7, 6,
 	4, 5, 1, 4, 1, 0,
 	3, 2, 6, 3, 6, 7,
 	1, 5, 6, 1, 6, 2,
-	4, 0, 3, 4, 3, 7*/
+	4, 0, 3, 4, 3, 7
 };
 
 ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
@@ -61,7 +61,7 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 		&defaultHeapProperties,
 		D3D12_HEAP_FLAG_NONE,
 		&vertexBufferDesc,
-		D3D12_RESOURCE_STATE_COMMON,
+		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
 		IID_PPV_ARGS(pDestinationResource)));
 
@@ -106,12 +106,11 @@ bool ParticleGame::LoadContent()
 	IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 	IndexBufferView.SizeInBytes = sizeof(Indices);
 
-	DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-
-	D3D12_DESCRIPTOR_HEAP_DESC SRV2UAV1HeapDesc = {};
-	SRV2UAV1HeapDesc.NumDescriptors = 3 * Window::BufferCount; // 3 for 2 SRVs and 1 UAV
-	SRV2UAV1HeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
-	ThrowIfFailed(device->CreateDescriptorHeap(&SRV2UAV1HeapDesc, IID_PPV_ARGS(&SRV2UAV1Heap)));
+	// Create descriptor heaps
+	{
+		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		SRV2UAV1Heap = Application::Get().CreateDescriptorHeap(3 * Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+	}
 
 	// Create root signatures
 	{
@@ -162,24 +161,13 @@ bool ParticleGame::LoadContent()
 		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&ComputeRootSignature)));
 	}
 
-	D3D12_INPUT_ELEMENT_DESC inputLayout[] = {
-		{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-	};
-
 	// Create PSO's
 	{
+		// Acquire shader bytecode
 		ComPtr<ID3DBlob> vertexShader;
-		ComPtr<ID3DBlob> fragmentShader;
+		ComPtr<ID3DBlob> pixelShader;
 		ComPtr<ID3DBlob> computeShader;
 		ComPtr<ID3DBlob> error;
-
-#if defined(_DEBUG)
-		// Enable better shader debugging with the graphics debugging tools.
-		UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#else
-		UINT compileFlags = 0;
-#endif
 
 		// Get path to .exe directory (where .cso files are)
 		WCHAR assetsPath[512];
@@ -188,9 +176,17 @@ bool ParticleGame::LoadContent()
 		assetPathString = assetPathString.substr(0, assetPathString.find_last_of(L"\\") + 1);
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
-		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &fragmentShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &pixelShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeShader));
 
+		// Define vertex input layout
+		D3D12_INPUT_ELEMENT_DESC inputLayout[] =
+		{
+			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		};
+
+		// Define rendering PSO
 		struct PipelineStateStream
 		{
 			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
@@ -200,29 +196,41 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-			//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 		} pipelineStateStream;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-		//CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-		//rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
-
 		pipelineStateStream.pRootSignature = RootSignature.Get();
 		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
 		pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(fragmentShader.Get());
+		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		pipelineStateStream.RTVFormats = rtvFormats;
-		//pipelineStateStream.Rasterizer = rasterizerDesc;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
+		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
+		{
 			sizeof(PipelineStateStream), &pipelineStateStream
 		};
-		ThrowIfFailed(device->CreatePipelineState(&pipelineStateStreamDesc, IID_PPV_ARGS(&PipelineState)));
+		ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&PipelineState)));
+
+		// Define compute PSO
+		struct ComputePipelineStateStream
+		{
+			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+		} computePipelineStateStream;
+
+		computePipelineStateStream.pRootSignature = ComputeRootSignature.Get();
+		computePipelineStateStream.CS = CD3DX12_SHADER_BYTECODE(computeShader.Get());;
+
+		D3D12_PIPELINE_STATE_STREAM_DESC computepsoDesc =
+		{
+			sizeof(ComputePipelineStateStream), &computePipelineStateStream
+		};
+		ThrowIfFailed(device->CreatePipelineState(&computepsoDesc, IID_PPV_ARGS(&ComputeState)));
 	}
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);

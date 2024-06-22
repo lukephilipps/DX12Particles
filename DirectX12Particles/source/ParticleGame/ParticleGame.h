@@ -73,6 +73,7 @@ private:
 	ComPtr<ID3D12DescriptorHeap> SRV2UAV1Heap;
 	ComPtr<ID3D12CommandSignature> CommandSignature;
 	ComPtr<ID3D12RootSignature> ComputeRootSignature;
+	ComPtr<ID3D12PipelineState> ComputeState;
 
 	uint64_t FenceValues[Window::BufferCount] = {};
 
