@@ -14,23 +14,24 @@ struct VertexPosColor
 };
 
 static VertexPosColor Vertices[8] = {
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, 0.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, 0.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, 0.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },/*
 	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f, 0.0f, 1.0f) }
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f, 0.0f, 1.0f) }*/
 };
 
-static WORD Indices[36] = {
-	0, 1, 2, 0, 2, 3,
+// Triangles
+static WORD Indices[6] = {
+	0, 1, 2, 0, 2, 3,/*
 	4, 6, 5, 4, 7, 6,
 	4, 5, 1, 4, 1, 0,
 	3, 2, 6, 3, 6, 7,
 	1, 5, 6, 1, 6, 2,
-	4, 0, 3, 4, 3, 7
+	4, 0, 3, 4, 3, 7*/
 };
 
 ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
@@ -39,7 +40,10 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, Viewport(CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)))
 	, FoV(45.0)
 	, ContentLoaded(false)
+	, drawOffset(0)
 {
+	CSRootConstants.test = 1;
+	CSRootConstants.commandCount = BoxCount;
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -154,15 +158,15 @@ bool ParticleGame::LoadContent()
 		CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 		CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 		CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-		CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
+		//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 	} pipelineStateStream;
 
 	D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 	rtvFormats.NumRenderTargets = 1;
 	rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-	CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-	rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
+	//CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
+	//rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
 
 	pipelineStateStream.pRootSignature = RootSignature.Get();
 	pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout)};
@@ -171,7 +175,7 @@ bool ParticleGame::LoadContent()
 	pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(fragmentShaderBlob.Get());
 	pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 	pipelineStateStream.RTVFormats = rtvFormats;
-	pipelineStateStream.Rasterizer = rasterizerDesc;
+	//pipelineStateStream.Rasterizer = rasterizerDesc;
 
 	D3D12_PIPELINE_STATE_STREAM_DESC pipelineStateStreamDesc = {
 		sizeof(PipelineStateStream), &pipelineStateStream
@@ -254,6 +258,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 	totalTime += e.ElapsedTime;
 	++frameCount;
 
+	deltaTime = e.ElapsedTime;
+
 	if (totalTime > 1.0)
 	{
 		double fps = frameCount / totalTime;
@@ -330,11 +336,11 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 	// Update root parameters
 	XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
-	XMMATRIX mvpMatrix2[3] = { XMMatrixTranslation(0, 3, 0), ViewMatrix, ProjectionMatrix};
+	XMMATRIX mvpMatrix2[3] = { XMMatrixTranslation(0, 3 + drawOffset, 0), ViewMatrix, ProjectionMatrix};
 	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
 
 	// Draw
-	commandList->DrawIndexedInstanced(_countof(Indices) / 4, 2, 0, 0, 0);
+	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
 
 	commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix2, 0);
 	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
@@ -369,6 +375,12 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		}
 	case KeyCode::V:
 		pWindow->ToggleVSync();
+		break;
+	case KeyCode::Right:
+		drawOffset += deltaTime * 20.0f;
+		break;
+	case KeyCode::Left:
+		drawOffset += -deltaTime * 20.0f;
 		break;
 	}
 }

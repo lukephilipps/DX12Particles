@@ -33,6 +33,45 @@ private:
 	// Resize the depth buffer to match the window area
 	void ResizeDepthBuffer(int width, int height);
 
+	// Root constants for the compute shader.
+	struct CSRootConstants
+	{
+		float test;
+		float commandCount;
+	};
+
+	// Data structure to match the command signature used for ExecuteIndirect.
+	struct IndirectCommand
+	{
+		D3D12_GPU_VIRTUAL_ADDRESS cbv;
+		D3D12_DRAW_ARGUMENTS drawArguments;
+	};
+
+	// Constant buffer definition.
+	struct SceneConstantBuffer
+	{
+		XMFLOAT4 placeHolder;
+
+		// Constant buffers are 256-byte aligned. Add padding in the struct to allow multiple buffers
+		// to be array-indexed.
+		float padding[240];
+	};
+
+	static const UINT BoxCount = 10;
+	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
+	static const UINT CommandSizePerFrame;                // The size of the indirect commands to draw all of the triangles in a single frame.
+	static const UINT CommandBufferCounterOffset;        // The offset of the UAV counter in the processed command buffer.
+	static const UINT ComputeThreadBlockSize = 128;        // Should match the value in compute.hlsl.
+
+	std::vector<SceneConstantBuffer> ConstantBufferData;
+	UINT8* CbvDataBegin;
+
+	CSRootConstants CSRootConstants;    // Constants for the compute shader.
+
+	ComPtr<ID3D12DescriptorHeap> SRV2UAV1Heap;
+	ComPtr<ID3D12CommandSignature> CommandSignature;
+	ComPtr<ID3D12RootSignature> ComputeRootSignature;
+
 	uint64_t FenceValues[Window::BufferCount] = {};
 
 	ComPtr<ID3D12Resource> VertexBuffer;
@@ -51,6 +90,8 @@ private:
 	D3D12_RECT ScissorRect;
 
 	float FoV;
+	float drawOffset;
+	float deltaTime;
 
 	DirectX::XMMATRIX ModelMatrix;
 	DirectX::XMMATRIX ViewMatrix;

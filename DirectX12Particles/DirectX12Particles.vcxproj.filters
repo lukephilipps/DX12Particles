@@ -125,5 +125,8 @@
     <FxCompile Include="source\ParticleGame\v_Passthrough.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
+    <FxCompile Include="source\ParticleGame\Compute.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>
