@@ -182,14 +182,14 @@ bool ParticleGame::LoadContent()
 #endif
 
 		// Get path to .exe (also where .cso files are)
-		std::wstring assetsPath = _SOLUTIONDIR;
-		assetsPath += L"DirectX12Particles\\source\\ParticleGame\\";
+		WCHAR assetsPath[512];
+		GetModuleFileNameW(nullptr, assetsPath, _countof(assetsPath));
+		std::wstring assetPathString = assetsPath;
+		assetPathString = assetPathString.substr(0, assetPathString.find_last_of(L"\\") + 1);
 
-		std::wstring c = (assetsPath + L"VertexPixel.hlsl");
-
-		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"VertexPixel.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_6_2", compileFlags, 0, &vertexShader, &error));
-		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"VertexPixel.hlsl").c_str(), nullptr, nullptr, "PSMain", "ps_6_2", compileFlags, 0, &fragmentShader, &error));
-		ThrowIfFailed(D3DCompileFromFile((assetsPath + L"Compute.hlsl").c_str(), nullptr, nullptr, "CSMain", "vs_6_2", compileFlags, 0, &computeShader, &error));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &fragmentShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeShader));
 
 		struct PipelineStateStream
 		{

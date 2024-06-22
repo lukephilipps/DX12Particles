@@ -28,9 +28,3 @@ v2f VSMain(app_data i, uint instanceID : SV_InstanceID)
 
     return o;
 }
-
-float4 PSMain(v2f i) : SV_Target
-{
-    return i.Color;
-
-}
