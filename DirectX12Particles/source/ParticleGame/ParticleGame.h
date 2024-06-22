@@ -70,24 +70,30 @@ private:
 
 	CSRootConstants CSRootConstants;    // Constants for the compute shader.
 
-	ComPtr<ID3D12DescriptorHeap> SRV2UAV1Heap;
 	ComPtr<ID3D12CommandSignature> CommandSignature;
-	ComPtr<ID3D12RootSignature> ComputeRootSignature;
-	ComPtr<ID3D12PipelineState> ComputeState;
 
 	uint64_t FenceValues[Window::BufferCount] = {};
 
-	ComPtr<ID3D12Resource> VertexBuffer;
-	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
+	ComPtr<ID3D12DescriptorHeap> DSVHeap;
+	ComPtr<ID3D12DescriptorHeap> SRV2UAV1Heap;
 
+	UINT RTVDescriptorSize;
+	UINT SRV2UAV1DescriptorSize;
+
+	ComPtr<ID3D12Resource> VertexBuffer;
+	ComPtr<ID3D12Resource> ConstantBuffer;
 	ComPtr<ID3D12Resource> IndexBuffer;
+	ComPtr<ID3D12Resource> DepthBuffer;
+	ComPtr<ID3D12Resource> CommandBuffer;
+	ComPtr<ID3D12Resource> ProcessedCommandBuffers[Window::BufferCount];
+	ComPtr<ID3D12Resource> ProcessedCommandBufferCounterReset;
+	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 
-	ComPtr<ID3D12Resource> DepthBuffer;
-	ComPtr<ID3D12DescriptorHeap> DSVHeap;
-
 	ComPtr<ID3D12RootSignature> RootSignature;
+	ComPtr<ID3D12RootSignature> ComputeRootSignature;
 	ComPtr<ID3D12PipelineState> PipelineState;
+	ComPtr<ID3D12PipelineState> ComputeState;
 
 	D3D12_VIEWPORT Viewport;
 	D3D12_RECT ScissorRect;

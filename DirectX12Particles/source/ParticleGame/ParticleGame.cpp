@@ -44,6 +44,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 {
 	CSRootConstants.test = 1;
 	CSRootConstants.commandCount = BoxCount;
+	ConstantBufferData.resize(BoxCount);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -89,22 +90,6 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 bool ParticleGame::LoadContent()
 {
 	auto device = Application::Get().GetDevice();
-	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
-	auto commandList = commandQueue->GetCommandList();
-
-	ComPtr<ID3D12Resource> intermediateVertexBuffer;
-	UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
-
-	VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
-	VertexBufferView.SizeInBytes = sizeof(Vertices);
-	VertexBufferView.StrideInBytes = sizeof(VertexPosColor);
-
-	ComPtr<ID3D12Resource> intermediateIndexBuffer;
-	UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);
-
-	IndexBufferView.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
-	IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
-	IndexBufferView.SizeInBytes = sizeof(Indices);
 
 	// Create descriptor heaps
 	{
@@ -226,11 +211,79 @@ bool ParticleGame::LoadContent()
 		computePipelineStateStream.pRootSignature = ComputeRootSignature.Get();
 		computePipelineStateStream.CS = CD3DX12_SHADER_BYTECODE(computeShader.Get());;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC computepsoDesc =
+		D3D12_PIPELINE_STATE_STREAM_DESC computePsoDesc =
 		{
 			sizeof(ComputePipelineStateStream), &computePipelineStateStream
 		};
-		ThrowIfFailed(device->CreatePipelineState(&computepsoDesc, IID_PPV_ARGS(&ComputeState)));
+		ThrowIfFailed(device->CreatePipelineState(&computePsoDesc, IID_PPV_ARGS(&ComputeState)));
+	}
+
+	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+	auto commandList = commandQueue->GetCommandList();
+	ComPtr<ID3D12Resource> intermediateVertexBuffer;
+	ComPtr<ID3D12Resource> intermediateIndexBuffer;
+
+	// Create Vertex/Index Buffer
+	{
+		UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
+		TransitionResource(commandList, VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+
+		VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
+		VertexBufferView.SizeInBytes = sizeof(Vertices);
+		VertexBufferView.StrideInBytes = sizeof(VertexPosColor);
+
+		UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);
+		TransitionResource(commandList, IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+
+		IndexBufferView.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
+		IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
+		IndexBufferView.SizeInBytes = sizeof(Indices);
+	}
+
+	RTVDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	SRV2UAV1DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+	// Create constant buffers
+	{
+		const UINT constantBufferDataSize = BoxResourceCount * sizeof(SceneConstantBuffer);
+
+		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferDataSize);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&heapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&constantBufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&ConstantBuffer)));
+
+		// Init constant buffer for each box
+		for (UINT n = 0; n < BoxCount; ++n)
+		{
+			ConstantBufferData[n].placeHolder = XMFLOAT4(0, 0, 0, 0);
+		}
+
+		// Map and init the constant buffer
+		CD3DX12_RANGE readRange(0, 0); // No CPU reading, read from no range
+		ThrowIfFailed(ConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&CbvDataBegin)));
+		memcpy(CbvDataBegin, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
+
+		// Create SRV for constant buffer of compute shader to read from
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Buffer.NumElements = BoxCount;
+		srvDesc.Buffer.StructureByteStride = sizeof(SceneConstantBuffer);
+		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 0, SRV2UAV1DescriptorSize);
+		for (UINT frame = 0; frame < Window::BufferCount; frame++)
+		{
+			srvDesc.Buffer.FirstElement = frame * BoxCount;
+			device->CreateShaderResourceView(ConstantBuffer.Get(), &srvDesc, cbvSrvHandle);
+			cbvSrvHandle.Offset(3, SRV2UAV1DescriptorSize);
+		}
 	}
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);
