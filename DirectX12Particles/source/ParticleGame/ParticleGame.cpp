@@ -349,17 +349,21 @@ bool ParticleGame::LoadContent()
 			IID_PPV_ARGS(&intermediateCommandBuffer)));
 
 		D3D12_GPU_VIRTUAL_ADDRESS gpuAdress = ConstantBuffer->GetGPUVirtualAddress();
+		UINT commandIndex = 0;
 
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			for (UINT n = 0; n < BoxCount; ++n)
 			{
-				commands[n].cbv = gpuAdress;
-				commands[n].drawArguments.VertexCountPerInstance = _countof(Vertices);
-				commands[n].drawArguments.InstanceCount = 1;
-				commands[n].drawArguments.StartVertexLocation = 0;
-				commands[n].drawArguments.StartInstanceLocation = 0;
+				commands[commandIndex].cbv = gpuAdress;
+				commands[commandIndex].ibv = IndexBufferView;
+				commands[commandIndex].drawArguments.IndexCountPerInstance = _countof(Vertices);
+				commands[commandIndex].drawArguments.InstanceCount = 1;
+				commands[commandIndex].drawArguments.StartIndexLocation = 0;
+				commands[commandIndex].drawArguments.BaseVertexLocation = 0;
+				commands[commandIndex].drawArguments.StartInstanceLocation = 0;
 
+				commandIndex++;
 				gpuAdress += sizeof(SceneConstantBuffer);
 			}
 		}
@@ -608,7 +612,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		// Set up input assembler
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
-		commandList->IASetIndexBuffer(&IndexBufferView);
 
 		// Draw
 		if (UseCompute)

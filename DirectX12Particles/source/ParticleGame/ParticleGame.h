@@ -47,7 +47,7 @@ private:
 	{
 		D3D12_GPU_VIRTUAL_ADDRESS cbv;
 		D3D12_INDEX_BUFFER_VIEW ibv;
-		D3D12_DRAW_ARGUMENTS drawArguments;
+		D3D12_DRAW_INDEXED_ARGUMENTS drawArguments;
 		UINT padding[1];
 	};
 
