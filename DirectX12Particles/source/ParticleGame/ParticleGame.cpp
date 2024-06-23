@@ -34,6 +34,9 @@ static WORD Indices[36] = {
 	4, 0, 3, 4, 3, 7
 };
 
+const UINT ParticleGame::CommandSizePerFrame = BoxCount * sizeof(IndirectCommand);
+const UINT ParticleGame::CommandBufferCounterOffset = (CommandSizePerFrame + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
+
 ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
 	: super(name, width, height, vSync)
 	, ScissorRect(CD3DX12_RECT(0, 0, LONG_MAX, LONG_MAX))
@@ -222,6 +225,7 @@ bool ParticleGame::LoadContent()
 	auto commandList = commandQueue->GetCommandList();
 	ComPtr<ID3D12Resource> intermediateVertexBuffer;
 	ComPtr<ID3D12Resource> intermediateIndexBuffer;
+	ComPtr<ID3D12Resource> intermediateCommandBuffer;
 
 	// Create Vertex/Index Buffer
 	{
@@ -268,7 +272,7 @@ bool ParticleGame::LoadContent()
 		ThrowIfFailed(ConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&CbvDataBegin)));
 		memcpy(CbvDataBegin, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
 
-		// Create SRV for constant buffer of compute shader to read from
+		// Create SRV for constant buffer of compute shader to read from (SRV2UAV1Buffer index 0)
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -284,6 +288,136 @@ bool ParticleGame::LoadContent()
 			device->CreateShaderResourceView(ConstantBuffer.Get(), &srvDesc, cbvSrvHandle);
 			cbvSrvHandle.Offset(3, SRV2UAV1DescriptorSize);
 		}
+	}
+
+	// Create command signature for indirect drawing
+	{
+		// Each call contains a CBV update and a DrawInstanced call
+		D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[2] = {};
+		argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
+		argumentDescs[0].ConstantBufferView.RootParameterIndex = 0;
+		argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+
+		D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
+		commandSignatureDesc.pArgumentDescs = argumentDescs;
+		commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
+		commandSignatureDesc.ByteStride = sizeof(IndirectCommand);
+
+		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, RootSignature.Get(), IID_PPV_ARGS(&CommandSignature)));
+	}
+
+	// Create command buffers/UAVs to store results of compute work
+	{
+		std::vector<IndirectCommand> commands;
+		commands.resize(BoxResourceCount);
+		const UINT commandBufferSize = CommandSizePerFrame * Window::BufferCount;
+
+		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		D3D12_RESOURCE_DESC commandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(commandBufferSize);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&heapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&commandBufferDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&CommandBuffer)));
+
+		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+		D3D12_RESOURCE_DESC uploadCommandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(commandBufferSize);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&uploadHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&uploadCommandBufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&intermediateCommandBuffer)));
+
+		D3D12_GPU_VIRTUAL_ADDRESS gpuAdress = ConstantBuffer->GetGPUVirtualAddress();
+
+		for (UINT frame = 0; frame < Window::BufferCount; frame++)
+		{
+			for (UINT n = 0; n < BoxCount; ++n)
+			{
+				commands[n].cbv = gpuAdress;
+				commands[n].drawArguments.VertexCountPerInstance = _countof(Vertices);
+				commands[n].drawArguments.InstanceCount = 1;
+				commands[n].drawArguments.StartVertexLocation = 0;
+				commands[n].drawArguments.StartInstanceLocation = 0;
+
+				gpuAdress += sizeof(SceneConstantBuffer);
+			}
+		}
+
+		// Copy data to intermediate (upload) heap then to command buffer
+		D3D12_SUBRESOURCE_DATA commandData = {};
+		commandData.pData = reinterpret_cast<UINT8*>(&commands[0]);
+		commandData.RowPitch = commandBufferSize;
+		commandData.SlicePitch = commandData.RowPitch;
+
+		UpdateSubresources<1>(commandList.Get(), CommandBuffer.Get(), intermediateCommandBuffer.Get(), 0, 0, 1, &commandData);
+		TransitionResource(commandList, CommandBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+
+		// Create SRVs for command buffer (SRV2UAV1Buffer index 1)
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Buffer.NumElements = BoxCount;
+		srvDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
+		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE commandsHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 1, SRV2UAV1DescriptorSize);
+		for (UINT frame = 0; frame < Window::BufferCount; frame++)
+		{
+			srvDesc.Buffer.FirstElement = frame * BoxCount;
+			device->CreateShaderResourceView(CommandBuffer.Get(), &srvDesc, commandsHandle);
+			commandsHandle.Offset(3, SRV2UAV1DescriptorSize);
+		}
+
+		// Create UAV's to store results of compute work (SRV2UAV1Buffer index 2)
+		CD3DX12_CPU_DESCRIPTOR_HANDLE processedCommandsHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 2, SRV2UAV1DescriptorSize);
+		for (UINT frame = 0; frame < Window::BufferCount; frame++)
+		{
+			// Allocate a buffer large enough to hold all indirect commands for a frame plus 1 UAV counter
+			commandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(CommandBufferCounterOffset + sizeof(UINT), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+			ThrowIfFailed(device->CreateCommittedResource(
+				&heapProperties,
+				D3D12_HEAP_FLAG_NONE,
+				&commandBufferDesc,
+				D3D12_RESOURCE_STATE_COPY_DEST,
+				nullptr,
+				IID_PPV_ARGS(&ProcessedCommandBuffers[frame])));
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+			uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+			uavDesc.Buffer.FirstElement = 0;
+			uavDesc.Buffer.NumElements = BoxCount;
+			uavDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
+			uavDesc.Buffer.CounterOffsetInBytes = CommandBufferCounterOffset;
+			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+
+			device->CreateUnorderedAccessView(ProcessedCommandBuffers[frame].Get(), ProcessedCommandBuffers[frame].Get(), &uavDesc, processedCommandsHandle);
+
+			processedCommandsHandle.Offset(3, SRV2UAV1DescriptorSize);
+		}
+
+
+		// Allocate buffer to reset UAV counters and initialize it to 0
+		D3D12_RESOURCE_DESC resetCommandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
+		ThrowIfFailed(device->CreateCommittedResource(
+			&uploadHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&resetCommandBufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&ProcessedCommandBufferCounterReset)));
+
+		UINT8* pMappedCounterReset = nullptr;
+		CD3DX12_RANGE readRange(0, 0);
+		ThrowIfFailed(ProcessedCommandBufferCounterReset->Map(0, &readRange, reinterpret_cast<void**>(&pMappedCounterReset)));
+		ZeroMemory(pMappedCounterReset, sizeof(UINT));
+		ProcessedCommandBufferCounterReset->Unmap(0, nullptr);
 	}
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);
@@ -320,7 +454,6 @@ void ParticleGame::ResizeDepthBuffer(int width, int height)
 
 		// Create a committed resource in GPU mem
 		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-
 		ThrowIfFailed(device->CreateCommittedResource(
 			&defaultHeapProperties,
 			D3D12_HEAP_FLAG_NONE,
