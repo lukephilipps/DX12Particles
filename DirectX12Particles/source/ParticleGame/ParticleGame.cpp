@@ -186,11 +186,15 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+			CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 		} pipelineStateStream;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+		CD3DX12_RASTERIZER_DESC rastDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		rastDesc.CullMode = D3D12_CULL_MODE_NONE;
 
 		pipelineStateStream.pRootSignature = RootSignature.Get();
 		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
@@ -199,6 +203,7 @@ bool ParticleGame::LoadContent()
 		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		pipelineStateStream.RTVFormats = rtvFormats;
+		pipelineStateStream.Rasterizer = rastDesc;
 
 		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
 		{
@@ -263,10 +268,18 @@ bool ParticleGame::LoadContent()
 			nullptr,
 			IID_PPV_ARGS(&ConstantBuffer)));
 
+		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
+		const float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
+
 		// Init constant buffer for each box
 		for (UINT n = 0; n < BoxCount; ++n)
 		{
 			ConstantBufferData[n].placeHolder = XMFLOAT4(0, 0, 0, 0);
+			XMStoreFloat4x4(&ConstantBufferData[n].M, XMMatrixTranslation(0, 0, 1));
+			XMStoreFloat4x4(&ConstantBufferData[n].V, XMMatrixLookAtLH(eyePosition, focusPoint, upDirection));
+			XMStoreFloat4x4(&ConstantBufferData[n].P, XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f));
 		}
 
 		// Map and init the constant buffer
@@ -295,10 +308,11 @@ bool ParticleGame::LoadContent()
 	// Create command signature for indirect drawing
 	{
 		// Each call contains a CBV update and a DrawInstanced call
-		D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[2] = {};
+		D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[3] = {};
 		argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
 		argumentDescs[0].ConstantBufferView.RootParameterIndex = 0;
-		argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW;
+		argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW;
+		argumentDescs[2].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
 
 		D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
 		commandSignatureDesc.pArgumentDescs = argumentDescs;
@@ -594,6 +608,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		// Set up input assembler
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
+		commandList->IASetIndexBuffer(&IndexBufferView);
 
 		// Draw
 		if (UseCompute)
@@ -612,7 +627,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 				CommandSignature.Get(),
 				BoxCount,
 				CommandBuffer.Get(),
-				0,
+				CommandSizePerFrame * currentBackBufferIndex,
 				nullptr,
 				0);
 		}

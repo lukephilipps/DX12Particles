@@ -122,8 +122,7 @@
     <FxCompile Include="source\ParticleGame\Compute.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
-    <FxCompile Include="source\ParticleGame\VertexPixel.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
+    <FxCompile Include="source\ParticleGame\Pixel.hlsl" />
+    <FxCompile Include="source\ParticleGame\Vertex.hlsl" />
   </ItemGroup>
 </Project>

@@ -2,11 +2,12 @@
 
 struct SceneConstantBuffer
 {
-    float4 velocity;
-    float4 offset;
-    float4 color;
-    float4x4 projection;
-    float4 padding[9];
+    float4 placeHolder;
+    matrix M;
+    matrix V;
+    matrix P;
+    
+    float4 padding[3];
 };
 
 struct IndirectCommand
