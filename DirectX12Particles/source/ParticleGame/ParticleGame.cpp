@@ -44,6 +44,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, FoV(45.0)
 	, ContentLoaded(false)
 	, drawOffset(0)
+	, UseCompute(false)
+	, deltaTime(0)
 {
 	CSRootConstants.test = 1;
 	CSRootConstants.commandCount = BoxCount;
@@ -537,58 +539,106 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	super::OnRender(e);
 
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
-	auto commandList = commandQueue->GetCommandList(); // in a state to be written to, doesn't need to be reset
+	auto commandList = commandQueue->GetCommandList();
+	auto computeCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+	auto computeCommandList = computeCommandQueue->GetCommandList();;
 
 	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
 	auto backBuffer = pWindow->GetCurrentBackBuffer();
 	auto rtv = pWindow->GetCurrentRenderTargetView();
 	auto dsv = DSVHeap->GetCPUDescriptorHandleForHeapStart();
 
-	// Clear render targets
+	// Compute command list
+	if (UseCompute)
 	{
-		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-		FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
-		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
-
-		FLOAT clearDepth = 1.0f;
-		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, clearDepth, 0, 0, nullptr);
 	}
 
-	// Set up PSO and root signature
-	commandList->SetPipelineState(PipelineState.Get()); // Binds PSO to render pipeline
-	commandList->SetGraphicsRootSignature(RootSignature.Get()); // Must do even though set in PSO
+	ThrowIfFailed(computeCommandList->Close());
 
-	// Set up input assembler
-	commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
-	commandList->IASetIndexBuffer(&IndexBufferView);
-
-	// Set up rasterizer state
-	commandList->RSSetViewports(1, &Viewport);
-	commandList->RSSetScissorRects(1, &ScissorRect);
-
-	// Bind render targets
-	commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
-
-	// Update root parameters
-	//XMMATRIX mvpMatrix[3] = { ModelMatrix, ViewMatrix, ProjectionMatrix };
-	//commandList->SetGraphicsRoot32BitConstants(0, 3 * sizeof(XMMATRIX) / 4, &mvpMatrix, 0);
-
-	ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
-	commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
-
-	// Draw
-	commandList->DrawIndexedInstanced(_countof(Indices), 2, 0, 0, 0);
-
-	// Present
+	// Rendering command list
 	{
-		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+		// Set up PSO and root signature
+		commandList->SetPipelineState(PipelineState.Get());
+		commandList->SetGraphicsRootSignature(RootSignature.Get());
+
+		// Bind descriptor heaps
+		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
+		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+		// Set up rasterizer state
+		commandList->RSSetViewports(1, &Viewport);
+		commandList->RSSetScissorRects(1, &ScissorRect);
+
+		// Indicate that the command buffer will be used for indirect drawing
+		D3D12_RESOURCE_BARRIER barriers[2] = {
+			CD3DX12_RESOURCE_BARRIER::Transition(
+				UseCompute ? ProcessedCommandBuffers[currentBackBufferIndex].Get() : CommandBuffer.Get(),
+				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
+				D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
+			CD3DX12_RESOURCE_BARRIER::Transition(
+				backBuffer.Get(),
+				D3D12_RESOURCE_STATE_PRESENT,
+				D3D12_RESOURCE_STATE_RENDER_TARGET)
+		};
+		commandList->ResourceBarrier(_countof(barriers), barriers);
+
+		// Bind render targets
+		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+
+		// Clear targets
+		const FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+
+		// Set up input assembler
+		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
+
+		// Draw
+		if (UseCompute)
+		{
+			commandList->ExecuteIndirect(
+				CommandSignature.Get(),
+				BoxCount,
+				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
+				0,
+				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
+				CommandBufferCounterOffset);
+		}
+		else
+		{
+			commandList->ExecuteIndirect(
+				CommandSignature.Get(),
+				BoxCount,
+				CommandBuffer.Get(),
+				0,
+				nullptr,
+				0);
+		}
+
+		// Change resources for presentation and compute
+		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+		barriers[0].Transition.StateAfter = UseCompute ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
+		barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+
+		commandList->ResourceBarrier(_countof(barriers), barriers);
+	}
+
+	// Execute work
+	{
+		if (UseCompute)
+		{
+
+		}
+		else
+		{
+			//ThrowIfFailed(computeCommandList->Close()); // Manually close list if we don't call CommandQueue->ExecuteCommandList()
+		}
 
 		FenceValues[currentBackBufferIndex] = commandQueue->ExecuteCommandList(commandList);
-
 		currentBackBufferIndex = pWindow->Present();
-
 		commandQueue->WaitForFenceValue(FenceValues[currentBackBufferIndex]);
 	}
 }
@@ -617,6 +667,9 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		break;
 	case KeyCode::Left:
 		drawOffset += -deltaTime * 20.0f;
+		break;
+	case KeyCode::Space:
+		UseCompute = !UseCompute;
 		break;
 	}
 }

@@ -25,6 +25,6 @@ v2f VSMain(app_data i, uint instanceID : SV_InstanceID)
     
     o.Position = mul(MVPConstantBuffer.P, mul(MVPConstantBuffer.V, mul(MVPConstantBuffer.M, float4(i.Position, 1.0f)) + float4(instanceID * 5, 0, 0, 0)));
     o.Color = float4(i.Color, 1.0f);
-
+    
     return o;
 }

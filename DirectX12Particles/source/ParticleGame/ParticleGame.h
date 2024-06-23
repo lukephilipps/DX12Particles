@@ -107,4 +107,5 @@ private:
 	DirectX::XMMATRIX ProjectionMatrix;
 
 	bool ContentLoaded;
+	bool UseCompute;
 };
