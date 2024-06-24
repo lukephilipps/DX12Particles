@@ -38,7 +38,7 @@ private:
 	// Root constants for the compute shader.
 	struct CSRootConstants
 	{
-		float test;
+		float x;
 		float commandCount;
 	};
 

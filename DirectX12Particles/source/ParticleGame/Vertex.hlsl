@@ -18,6 +18,8 @@ struct v2f
     float4 Position : SV_Position;
 };
 
+static const int x = 3;
+
 float3x3 AngleAxis3x3(float angle, float3 axis)
 {
     float c, s;
@@ -43,7 +45,7 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     float4 modelPos = float4(mul(AngleAxis3x3(rotation.x, normalize(float3(0, 1, 1))), i.Position), 1);
     modelPos.x += instanceID * 5;
     
-    o.Position = mul(P, mul(V, mul(M, modelPos)));
+    o.Position = mul(P, mul(V, mul(M, modelPos + float4(0, rotation.y * x, 0, 0))));
     o.Color = float4(i.Color, 1.0f);
     
     return o;

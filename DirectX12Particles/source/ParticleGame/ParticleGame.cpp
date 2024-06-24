@@ -47,7 +47,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, UseCompute(false)
 	, deltaTime(0)
 {
-	CSRootConstants.test = 1;
+	CSRootConstants.x = 1;
 	CSRootConstants.commandCount = BoxCount;
 	ConstantBufferData.resize(BoxCount);
 }
@@ -136,8 +136,8 @@ bool ParticleGame::LoadContent()
 
 		// Create compute signature with a descriptor table
 		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 		// 2 compute parameters, our descriptor table and root constants
 		CD3DX12_ROOT_PARAMETER1 computeRootParameters[2];
@@ -186,15 +186,15 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-			CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
+			//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 		} pipelineStateStream;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-		CD3DX12_RASTERIZER_DESC rastDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		rastDesc.CullMode = D3D12_CULL_MODE_NONE;
+		//CD3DX12_RASTERIZER_DESC rastDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		//rastDesc.CullMode = D3D12_CULL_MODE_NONE;
 
 		pipelineStateStream.pRootSignature = RootSignature.Get();
 		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
@@ -203,7 +203,7 @@ bool ParticleGame::LoadContent()
 		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		pipelineStateStream.RTVFormats = rtvFormats;
-		pipelineStateStream.Rasterizer = rastDesc;
+		//pipelineStateStream.Rasterizer = rastDesc;
 
 		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
 		{
@@ -277,7 +277,7 @@ bool ParticleGame::LoadContent()
 		for (UINT n = 0; n < BoxCount; ++n)
 		{
 			ConstantBufferData[n].rotation = XMFLOAT4(0, 0, 0, 0);
-			XMStoreFloat4x4(&ConstantBufferData[n].M, XMMatrixTranslation(0, 0, 1));
+			XMStoreFloat4x4(&ConstantBufferData[n].M, XMMatrixTranslation(0, 0, 0));
 			XMStoreFloat4x4(&ConstantBufferData[n].V, XMMatrixLookAtLH(eyePosition, focusPoint, upDirection));
 			XMStoreFloat4x4(&ConstantBufferData[n].P, XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f));
 		}
@@ -548,7 +548,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 
 		for (UINT n = 0; n < BoxCount; n++)
 		{
-			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), 0, 0, 0);
+			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), n, 0, 0);
 			XMStoreFloat4x4(&ConstantBufferData[n].M, identityMatrix);
 			XMStoreFloat4x4(&ConstantBufferData[n].V, ViewMatrix);
 			XMStoreFloat4x4(&ConstantBufferData[n].P, ProjectionMatrix);
@@ -583,7 +583,11 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	// Compute command list
 	if (UseCompute)
 	{
+		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
+		D3D12_GPU_DESCRIPTOR_HANDLE SRV2UAV1Handle = SRV2UAV1Heap->GetGPUDescriptorHandleForHeapStart();
 
+		commandList->SetPipelineState(ComputeState.Get());
+		computeCommandList->SetComputeRootSignature(ComputeRootSignature.Get());
 	}
 
 	ThrowIfFailed(computeCommandList->Close());

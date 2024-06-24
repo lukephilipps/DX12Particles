@@ -2,7 +2,7 @@
 
 struct SceneConstantBuffer
 {
-    float4 placeHolder;
+    float4 rotation;
     matrix M;
     matrix V;
     matrix P;
@@ -18,7 +18,7 @@ struct IndirectCommand
 
 cbuffer RootConstants : register(b0)
 {
-    float test; // For testing passing constants
+    float x;
     float commandCount;
 };
 
@@ -34,8 +34,8 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
 
     // Don't attempt to access commands that don't exist if more threads are allocated
     // than commands.
-    if (index < commandCount)
+    if (index < commandCount && cbv[index].rotation.x < 100000000.0f)
     {
-        
+        outputCommands.Append(inputCommands[index]);
     }
 }
