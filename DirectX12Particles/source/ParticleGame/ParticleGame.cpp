@@ -276,7 +276,7 @@ bool ParticleGame::LoadContent()
 		// Init constant buffer for each box
 		for (UINT n = 0; n < BoxCount; ++n)
 		{
-			ConstantBufferData[n].placeHolder = XMFLOAT4(0, 0, 0, 0);
+			ConstantBufferData[n].rotation = XMFLOAT4(0, 0, 0, 0);
 			XMStoreFloat4x4(&ConstantBufferData[n].M, XMMatrixTranslation(0, 0, 1));
 			XMStoreFloat4x4(&ConstantBufferData[n].V, XMMatrixLookAtLH(eyePosition, focusPoint, upDirection));
 			XMStoreFloat4x4(&ConstantBufferData[n].P, XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f));
@@ -357,8 +357,8 @@ bool ParticleGame::LoadContent()
 			{
 				commands[commandIndex].cbv = gpuAdress;
 				commands[commandIndex].ibv = IndexBufferView;
-				commands[commandIndex].drawArguments.IndexCountPerInstance = _countof(Vertices);
-				commands[commandIndex].drawArguments.InstanceCount = 1;
+				commands[commandIndex].drawArguments.IndexCountPerInstance = _countof(Indices);
+				commands[commandIndex].drawArguments.InstanceCount = 2;
 				commands[commandIndex].drawArguments.StartIndexLocation = 0;
 				commands[commandIndex].drawArguments.BaseVertexLocation = 0;
 				commands[commandIndex].drawArguments.StartInstanceLocation = 0;
@@ -528,21 +528,35 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		frameCount = 0;
 		totalTime = 0.0;
 	}
+	
+	// Update constant info for next frame's buffer
+	{
+		// Get model matrix
+		XMMATRIX identityMatrix = XMMatrixIdentity();
 
-	// Update model matrix
-	float angle = static_cast<float>(e.TotalTime * 90.0);
-	const XMVECTOR rotationAxis = XMVectorSet(0, 1, 1, 0);
-	ModelMatrix = XMMatrixRotationAxis(rotationAxis, XMConvertToRadians(angle));
+		// Update view matrix
+		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
+		ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-	// Update view matrix
-	const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
-	const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
-	const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
-	ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+		// Update projection matrix
+		float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
+		ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
 
-	// Update projection matrix
-	float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
-	ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
+		float angle = static_cast<float>(e.TotalTime * 90);
+
+		for (UINT n = 0; n < BoxCount; n++)
+		{
+			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), 0, 0, 0);
+			XMStoreFloat4x4(&ConstantBufferData[n].M, identityMatrix);
+			XMStoreFloat4x4(&ConstantBufferData[n].V, ViewMatrix);
+			XMStoreFloat4x4(&ConstantBufferData[n].P, ProjectionMatrix);
+		}
+
+		UINT8* destination = CbvDataBegin + (BoxCount * pWindow->GetCurrentBackBufferIndex() * sizeof(SceneConstantBuffer));
+		memcpy(destination, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
+	}
 }
 
 void ParticleGame::TransitionResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
@@ -656,6 +670,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		}
 
 		FenceValues[currentBackBufferIndex] = commandQueue->ExecuteCommandList(commandList);
+
 		currentBackBufferIndex = pWindow->Present();
 		commandQueue->WaitForFenceValue(FenceValues[currentBackBufferIndex]);
 	}

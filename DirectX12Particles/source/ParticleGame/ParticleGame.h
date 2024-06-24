@@ -54,7 +54,7 @@ private:
 	// Constant buffer definition.
 	struct SceneConstantBuffer
 	{
-		XMFLOAT4 placeHolder;
+		XMFLOAT4 rotation;
 		XMFLOAT4X4 M;
 		XMFLOAT4X4 V;
 		XMFLOAT4X4 P;
@@ -107,7 +107,6 @@ private:
 	float drawOffset;
 	float deltaTime;
 
-	DirectX::XMMATRIX ModelMatrix;
 	DirectX::XMMATRIX ViewMatrix;
 	DirectX::XMMATRIX ProjectionMatrix;
 
