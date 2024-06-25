@@ -12,7 +12,6 @@ public:
 	ComPtr<ID3D12GraphicsCommandList2> GetCommandList();
 
 	uint64_t ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList);
-	void ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList, uint64_t fenceValue);
 
 	uint64_t Signal();
 	bool IsFenceCompleted(uint64_t fenceValue);

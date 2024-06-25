@@ -125,7 +125,7 @@ uint64_t CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> com
 		commandList.Get()
 	};
 
-	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
+         	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
 	uint64_t fenceValue = Signal();
 
 	CAllocatorQueue.emplace(CommandAllocatorEntry{ fenceValue, commandAllocator });
@@ -134,29 +134,6 @@ uint64_t CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> com
 	commandAllocator->Release();
 
 	return fenceValue;
-}
-
-// For use in synchronizing CQ with other CQs
-void CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList, uint64_t fenceValue)
-{
-	commandList->Close();
-
-	ID3D12CommandAllocator* commandAllocator;
-	UINT dataSize = sizeof(commandAllocator);
-	ThrowIfFailed(commandList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &commandAllocator));
-
-	ID3D12CommandList* const commandLists[] =
-	{
-		commandList.Get()
-	};
-
-	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
-	ThrowIfFailed(d3d12CommandQueue->Signal(d3d12Fence.Get(), fenceValue));
-
-	CAllocatorQueue.emplace(CommandAllocatorEntry{ fenceValue, commandAllocator });
-	CListQueue.push(commandList);
-
-	commandAllocator->Release();
 }
 
 ComPtr<ID3D12CommandQueue> CommandQueue::GetD3D12CommandQueue() const

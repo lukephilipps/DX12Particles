@@ -574,8 +574,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	auto commandList = commandQueue->GetCommandList();
 	auto computeCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
 	auto computeCommandList = computeCommandQueue->GetCommandList();
-	commandQueue->GetD3D12CommandQueue()->SetName(L"direct");
-	computeCommandQueue->GetD3D12CommandQueue()->SetName(L"compute");
 
 	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
 	auto backBuffer = pWindow->GetCurrentBackBuffer();
@@ -679,8 +677,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	{
 		if (UseCompute)
 		{
-			computeCommandQueue->ExecuteCommandList(computeCommandList, FenceValues[currentBackBufferIndex]);
-			commandQueue->Wait(computeCommandQueue->GetD3D12Fence(), FenceValues[currentBackBufferIndex]);
+			uint64_t computeFence = computeCommandQueue->ExecuteCommandList(computeCommandList);
+			commandQueue->Wait(computeCommandQueue->GetD3D12Fence(), computeFence);
 		}
 		else
 		{
@@ -688,13 +686,9 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 			ThrowIfFailed(computeCommandList->Close());
 		}
 
-		UINT64 currentFenceValue = FenceValues[currentBackBufferIndex];
-		commandQueue->ExecuteCommandList(commandList, FenceValues[currentBackBufferIndex]);
-
+		FenceValues[currentBackBufferIndex] = commandQueue->ExecuteCommandList(commandList);
 		currentBackBufferIndex = pWindow->Present();
 		commandQueue->WaitForFenceValue(FenceValues[currentBackBufferIndex]);
-
-		FenceValues[currentBackBufferIndex] = currentFenceValue + 1;
 	}
 }
 
@@ -724,6 +718,7 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		drawOffset += -deltaTime * 20.0f;
 		break;
 	case KeyCode::Space:
+		Application::Get().Flush();
 		UseCompute = !UseCompute;
 		break;
 	}

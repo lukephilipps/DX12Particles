@@ -77,8 +77,11 @@ void Application::Initialize()
 	}
 
 	DirectCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_DIRECT);
+	DirectCommandQueue->GetD3D12CommandQueue()->SetName(L"Direct Command Queue");
 	ComputeCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+	ComputeCommandQueue->GetD3D12CommandQueue()->SetName(L"Compute Command Queue");
 	CopyCommandQueue = std::make_shared<CommandQueue>(D3D12_COMMAND_LIST_TYPE_COPY);
+	CopyCommandQueue->GetD3D12CommandQueue()->SetName(L"Copy Command Queue");
 
 	TearingSupported = CheckTearingSupport();
 }
