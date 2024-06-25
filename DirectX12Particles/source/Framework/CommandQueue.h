@@ -12,13 +12,16 @@ public:
 	ComPtr<ID3D12GraphicsCommandList2> GetCommandList();
 
 	uint64_t ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList);
+	void ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList, uint64_t fenceValue);
 
 	uint64_t Signal();
 	bool IsFenceCompleted(uint64_t fenceValue);
 	void WaitForFenceValue(uint64_t fenceValue);
+	void Wait(ComPtr<ID3D12Fence> fence, uint64_t fenceValue);
 	void Flush();
 
 	ComPtr<ID3D12CommandQueue> GetD3D12CommandQueue() const;
+	ComPtr<ID3D12Fence> GetD3D12Fence() const;
 
 protected:
 

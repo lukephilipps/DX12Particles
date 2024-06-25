@@ -68,7 +68,7 @@ private:
 	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
 	static const UINT CommandSizePerFrame;                // The size of the indirect commands to draw all of the triangles in a single frame.
 	static const UINT CommandBufferCounterOffset;         // The offset of the UAV counter in the processed command buffer.
-	static const UINT ComputeThreadBlockSize = 128;       // Should match the value in compute.hlsl.
+	static const UINT ComputeThreadGroupSize = 128;       // Should match the value in compute.hlsl.
 
 	std::vector<SceneConstantBuffer> ConstantBufferData;
 	UINT8* CbvDataBegin;

@@ -1,4 +1,4 @@
-#define threadBlockSize 128
+#define threadGroupSize 128
 
 struct SceneConstantBuffer
 {
@@ -26,15 +26,15 @@ StructuredBuffer<SceneConstantBuffer> cbv : register(t0); // SRV: Wrapped consta
 StructuredBuffer<IndirectCommand> inputCommands : register(t1); // SRV: Indirect commands
 AppendStructuredBuffer<IndirectCommand> outputCommands : register(u0); // UAV: Processed indirect commands
 
-[numthreads(threadBlockSize, 1, 1)]
+[numthreads(threadGroupSize, 1, 1)]
 void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
 {
     // Each thread of the CS operates on one of the indirect commands.
-    uint index = (groupId.x * threadBlockSize) + groupIndex;
+    uint index = (groupId.x * threadGroupSize) + groupIndex;
 
     // Don't attempt to access commands that don't exist if more threads are allocated
     // than commands.
-    if (index < commandCount && cbv[index].rotation.x < 100000000.0f)
+    if (index < 2 && cbv[index].rotation.x < 100000000.0f)
     {
         outputCommands.Append(inputCommands[index]);
     }

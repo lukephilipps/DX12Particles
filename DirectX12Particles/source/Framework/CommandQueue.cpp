@@ -48,6 +48,11 @@ void CommandQueue::WaitForFenceValue(uint64_t fenceValue)
 	}
 }
 
+void CommandQueue::Wait(ComPtr<ID3D12Fence> fence, uint64_t fenceValue)
+{
+	d3d12CommandQueue->Wait(fence.Get(), fenceValue);
+}
+
 void CommandQueue::Flush()
 {
 	WaitForFenceValue(Signal());
@@ -131,7 +136,35 @@ uint64_t CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> com
 	return fenceValue;
 }
 
+// For use in synchronizing CQ with other CQs
+void CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> commandList, uint64_t fenceValue)
+{
+	commandList->Close();
+
+	ID3D12CommandAllocator* commandAllocator;
+	UINT dataSize = sizeof(commandAllocator);
+	ThrowIfFailed(commandList->GetPrivateData(__uuidof(ID3D12CommandAllocator), &dataSize, &commandAllocator));
+
+	ID3D12CommandList* const commandLists[] =
+	{
+		commandList.Get()
+	};
+
+	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
+	ThrowIfFailed(d3d12CommandQueue->Signal(d3d12Fence.Get(), fenceValue));
+
+	CAllocatorQueue.emplace(CommandAllocatorEntry{ fenceValue, commandAllocator });
+	CListQueue.push(commandList);
+
+	commandAllocator->Release();
+}
+
 ComPtr<ID3D12CommandQueue> CommandQueue::GetD3D12CommandQueue() const
 {
 	return d3d12CommandQueue;
+}
+
+ComPtr<ID3D12Fence> CommandQueue::GetD3D12Fence() const
+{
+	return d3d12Fence;
 }

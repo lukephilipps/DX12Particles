@@ -44,7 +44,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, FoV(45.0)
 	, ContentLoaded(false)
 	, drawOffset(0)
-	, UseCompute(false)
+	, UseCompute(true)
 	, deltaTime(0)
 {
 	CSRootConstants.x = 1;
@@ -548,7 +548,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 
 		for (UINT n = 0; n < BoxCount; n++)
 		{
-			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), n, 0, 0);
+			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), (float)n, 0, 0);
 			XMStoreFloat4x4(&ConstantBufferData[n].M, identityMatrix);
 			XMStoreFloat4x4(&ConstantBufferData[n].V, ViewMatrix);
 			XMStoreFloat4x4(&ConstantBufferData[n].P, ProjectionMatrix);
@@ -573,7 +573,9 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
 	auto commandList = commandQueue->GetCommandList();
 	auto computeCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
-	auto computeCommandList = computeCommandQueue->GetCommandList();;
+	auto computeCommandList = computeCommandQueue->GetCommandList();
+	commandQueue->GetD3D12CommandQueue()->SetName(L"direct");
+	computeCommandQueue->GetD3D12CommandQueue()->SetName(L"compute");
 
 	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
 	auto backBuffer = pWindow->GetCurrentBackBuffer();
@@ -586,11 +588,22 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
 		D3D12_GPU_DESCRIPTOR_HANDLE SRV2UAV1Handle = SRV2UAV1Heap->GetGPUDescriptorHandleForHeapStart();
 
-		commandList->SetPipelineState(ComputeState.Get());
+		computeCommandList->SetPipelineState(ComputeState.Get());
 		computeCommandList->SetComputeRootSignature(ComputeRootSignature.Get());
-	}
 
-	ThrowIfFailed(computeCommandList->Close());
+		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
+		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(SRV2UAV1Handle, frameDescriptorOffset, SRV2UAV1DescriptorSize));
+		computeCommandList->SetComputeRoot32BitConstants(1, 2, reinterpret_cast<void*>(&CSRootConstants), 0);
+
+		// Reset UAV counter for this frame
+		computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
+
+		TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+
+		computeCommandList->Dispatch(static_cast<UINT>(ceil(BoxCount / float(ComputeThreadGroupSize))), 1, 1);
+	}
 
 	// Rendering command list
 	{
@@ -666,17 +679,22 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	{
 		if (UseCompute)
 		{
-
+			computeCommandQueue->ExecuteCommandList(computeCommandList, FenceValues[currentBackBufferIndex]);
+			commandQueue->Wait(computeCommandQueue->GetD3D12Fence(), FenceValues[currentBackBufferIndex]);
 		}
 		else
 		{
-			//ThrowIfFailed(computeCommandList->Close()); // Manually close list if we don't call CommandQueue->ExecuteCommandList()
+			// Manually close list if we don't call CommandQueue->ExecuteCommandList()
+			ThrowIfFailed(computeCommandList->Close());
 		}
 
-		FenceValues[currentBackBufferIndex] = commandQueue->ExecuteCommandList(commandList);
+		UINT64 currentFenceValue = FenceValues[currentBackBufferIndex];
+		commandQueue->ExecuteCommandList(commandList, FenceValues[currentBackBufferIndex]);
 
 		currentBackBufferIndex = pWindow->Present();
 		commandQueue->WaitForFenceValue(FenceValues[currentBackBufferIndex]);
+
+		FenceValues[currentBackBufferIndex] = currentFenceValue + 1;
 	}
 }
 
