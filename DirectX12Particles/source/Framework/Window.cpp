@@ -110,7 +110,7 @@ void Window::SetFullScreen(bool fullScreen)
 			// Store restorable window dimensions
 			::GetWindowRect(WindowHandle, &WindowRect);
 
-			UINT windowStyle = WS_OVERLAPPEDWINDOW & (WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX);
+			UINT windowStyle = WS_OVERLAPPED;
 
 			::SetWindowLongW(WindowHandle, GWL_STYLE, windowStyle);
 
