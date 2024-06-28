@@ -35,6 +35,12 @@ private:
 	// Resize the depth buffer to match the window area
 	void ResizeDepthBuffer(int width, int height);
 
+	struct Particle
+	{
+		XMFLOAT3 velocity;
+		float age;
+	};
+
 	// Root constants for the compute shader.
 	struct CSRootConstants
 	{
@@ -64,7 +70,7 @@ private:
 		float padding[12];
 	};
 
-	static const UINT BoxCount = 10;
+	static const UINT BoxCount = 3;
 	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
 	static const UINT CommandSizePerFrame;                // The size of the indirect commands to draw all of the triangles in a single frame.
 	static const UINT CommandBufferCounterOffset;         // The offset of the UAV counter in the processed command buffer.

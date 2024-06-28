@@ -422,7 +422,6 @@ bool ParticleGame::LoadContent()
 			processedCommandsHandle.Offset(3, SRV2UAV1DescriptorSize);
 		}
 
-
 		// Allocate buffer to reset UAV counters and initialize it to 0
 		D3D12_RESOURCE_DESC resetCommandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
 		ThrowIfFailed(device->CreateCommittedResource(
