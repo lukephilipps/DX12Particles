@@ -105,8 +105,8 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 
-	ComPtr<ID3D12RootSignature> RootSignature;
-	ComPtr<ID3D12RootSignature> ComputeRootSignature;
+	ComPtr<ID3D12RootSignature> DrawRootSignature;
+	ComPtr<ID3D12RootSignature> EmitRootSignature;
 	ComPtr<ID3D12PipelineState> PipelineState;
 	ComPtr<ID3D12PipelineState> ComputeState;
 
@@ -122,4 +122,7 @@ private:
 
 	bool ContentLoaded;
 	bool UseCompute;
+
+	static const UINT MaxParticleCount = 1000;
+	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 };

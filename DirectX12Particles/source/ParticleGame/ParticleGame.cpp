@@ -101,6 +101,8 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+		// 3 comes from the heap containing 3 subheaps (and * for each frame)
 		SRV2UAV1Heap = Application::Get().CreateDescriptorHeap(3 * Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	}
 
@@ -113,18 +115,11 @@ bool ParticleGame::LoadContent()
 			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 		}
 
-		D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
-			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT; // Omit flag if input assembler not required
-			/*D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS | 
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS | 
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS | 
-			D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;*/
-	
 		CD3DX12_ROOT_PARAMETER1 rootParameters[1];
 		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, D3D12_SHADER_VISIBILITY_VERTEX);
 
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-		rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, rootSignatureFlags);
+		rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 		// Serialize the root signature into binary
 		ComPtr<ID3DBlob> rootSignatureBlob;
@@ -134,7 +129,7 @@ bool ParticleGame::LoadContent()
 		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
 
 		// Create the root signature YIPPEE
-		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&RootSignature)));
+		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&DrawRootSignature)));
 
 		// Create compute signature with a descriptor table
 		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
@@ -150,12 +145,11 @@ bool ParticleGame::LoadContent()
 		computeRootSignatureDescription.Init_1_1(_countof(computeRootParameters), computeRootParameters);
 
 		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&computeRootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
-		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&ComputeRootSignature)));
+		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&EmitRootSignature)));
 	}
 
 	// Create PSO's
 	{
-		// Acquire shader bytecode
 		ComPtr<ID3DBlob> vertexShader;
 		ComPtr<ID3DBlob> pixelShader;
 		ComPtr<ID3DBlob> computeShader;
@@ -188,24 +182,19 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-			//CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 		} pipelineStateStream;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-		//CD3DX12_RASTERIZER_DESC rastDesc = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-		//rastDesc.CullMode = D3D12_CULL_MODE_NONE;
-
-		pipelineStateStream.pRootSignature = RootSignature.Get();
+		pipelineStateStream.pRootSignature = DrawRootSignature.Get();
 		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
 		pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
 		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		pipelineStateStream.RTVFormats = rtvFormats;
-		//pipelineStateStream.Rasterizer = rastDesc;
 
 		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
 		{
@@ -220,7 +209,7 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
 		} computePipelineStateStream;
 
-		computePipelineStateStream.pRootSignature = ComputeRootSignature.Get();
+		computePipelineStateStream.pRootSignature = EmitRootSignature.Get();
 		computePipelineStateStream.CS = CD3DX12_SHADER_BYTECODE(computeShader.Get());;
 
 		D3D12_PIPELINE_STATE_STREAM_DESC computePsoDesc =
@@ -321,7 +310,7 @@ bool ParticleGame::LoadContent()
 		commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
 		commandSignatureDesc.ByteStride = sizeof(IndirectCommand);
 
-		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, RootSignature.Get(), IID_PPV_ARGS(&CommandSignature)));
+		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, DrawRootSignature.Get(), IID_PPV_ARGS(&CommandSignature)));
 	}
 
 	// Create command buffers/UAVs to store results of compute work
@@ -379,7 +368,7 @@ bool ParticleGame::LoadContent()
 		UpdateSubresources<1>(commandList.Get(), CommandBuffer.Get(), intermediateCommandBuffer.Get(), 0, 0, 1, &commandData);
 		TransitionResource(commandList, CommandBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 
-		// Create SRVs for command buffer (SRV2UAV1Buffer index 1)
+		// Create SRV 2, input command buffer (SRV2UAV1Buffer index 1)
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -590,7 +579,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		D3D12_GPU_DESCRIPTOR_HANDLE SRV2UAV1Handle = SRV2UAV1Heap->GetGPUDescriptorHandleForHeapStart();
 
 		computeCommandList->SetPipelineState(ComputeState.Get());
-		computeCommandList->SetComputeRootSignature(ComputeRootSignature.Get());
+		computeCommandList->SetComputeRootSignature(EmitRootSignature.Get());
 
 		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
@@ -610,7 +599,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	{
 		// Set up PSO and root signature
 		commandList->SetPipelineState(PipelineState.Get());
-		commandList->SetGraphicsRootSignature(RootSignature.Get());
+		commandList->SetGraphicsRootSignature(DrawRootSignature.Get());
 
 		// Bind descriptor heaps
 		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
