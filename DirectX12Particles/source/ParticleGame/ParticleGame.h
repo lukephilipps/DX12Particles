@@ -37,6 +37,7 @@ private:
 
 	struct Particle
 	{
+		XMFLOAT3 position;
 		XMFLOAT3 velocity;
 		float age;
 	};
@@ -44,8 +45,11 @@ private:
 	// Root constants for the compute shader.
 	struct CSRootConstants
 	{
-		float x;
-		float commandCount;
+		float emitCount;
+		float particleLifetime;
+		XMFLOAT3 emitPosition;
+		XMFLOAT3 emitVelocity;
+		float deltaTime;
 	};
 
 	// Data structure to match the command signature used for ExecuteIndirect.

@@ -13,7 +13,12 @@ struct SceneConstantBuffer
 struct IndirectCommand
 {
     uint2 cbvAddress;
-    uint4 drawArguments;
+    uint4 ibv;
+    uint indexCountPerInstance;
+    uint instanceCount;
+    uint startIndexLocation;
+    int baseVertexLocation;
+    uint startInstanceLocation;
 };
 
 cbuffer RootConstants : register(b0)
@@ -36,6 +41,8 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
     // than commands.
     if (index < 2 && cbv[index].rotation.x < 100000000.0f)
     {
-        outputCommands.Append(inputCommands[index]);
+        IndirectCommand command = inputCommands[index];
+        command.instanceCount = 10;
+        outputCommands.Append(command);
     }
 }

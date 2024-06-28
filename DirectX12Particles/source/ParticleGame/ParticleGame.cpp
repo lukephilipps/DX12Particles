@@ -47,8 +47,10 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, UseCompute(true)
 	, deltaTime(0)
 {
-	CSRootConstants.x = 1;
-	CSRootConstants.commandCount = BoxCount;
+	CSRootConstants.emitCount = 1;
+	CSRootConstants.particleLifetime = 1;
+	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
+	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
 	ConstantBufferData.resize(BoxCount);
 }
 
@@ -142,7 +144,7 @@ bool ParticleGame::LoadContent()
 		// 2 compute parameters, our descriptor table and root constants
 		CD3DX12_ROOT_PARAMETER1 computeRootParameters[2];
 		computeRootParameters[0].InitAsDescriptorTable(2, ranges);
-		computeRootParameters[1].InitAsConstants(2, 0);
+		computeRootParameters[1].InitAsConstants(9, 0);
 
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC computeRootSignatureDescription;
 		computeRootSignatureDescription.Init_1_1(_countof(computeRootParameters), computeRootParameters);
@@ -358,7 +360,7 @@ bool ParticleGame::LoadContent()
 				commands[commandIndex].cbv = gpuAdress;
 				commands[commandIndex].ibv = IndexBufferView;
 				commands[commandIndex].drawArguments.IndexCountPerInstance = _countof(Indices);
-				commands[commandIndex].drawArguments.InstanceCount = 2;
+				commands[commandIndex].drawArguments.InstanceCount = 1;
 				commands[commandIndex].drawArguments.StartIndexLocation = 0;
 				commands[commandIndex].drawArguments.BaseVertexLocation = 0;
 				commands[commandIndex].drawArguments.StartInstanceLocation = 0;
@@ -555,6 +557,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 
 		UINT8* destination = CbvDataBegin + (BoxCount * pWindow->GetCurrentBackBufferIndex() * sizeof(SceneConstantBuffer));
 		memcpy(destination, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
+
+		CSRootConstants.deltaTime = deltaTime;
 	}
 }
 
@@ -592,7 +596,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(SRV2UAV1Handle, frameDescriptorOffset, SRV2UAV1DescriptorSize));
-		computeCommandList->SetComputeRoot32BitConstants(1, 2, reinterpret_cast<void*>(&CSRootConstants), 0);
+		computeCommandList->SetComputeRoot32BitConstants(1, 9, reinterpret_cast<void*>(&CSRootConstants), 0);
 
 		// Reset UAV counter for this frame
 		computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
@@ -633,7 +637,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
 		// Clear targets
-		const FLOAT clearColor[] = { 0.4f, 0.6f, 0.9f, 1.0f };
+		const FLOAT clearColor[] = { 0.3f, 0.2f, 0.1f, 1.0f };
 		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
