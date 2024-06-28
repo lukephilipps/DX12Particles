@@ -48,7 +48,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, deltaTime(0)
 {
 	CSRootConstants.emitCount = 1;
-	CSRootConstants.particleLifetime = 1;
+	CSRootConstants.particleLifetime = BoxCount;
 	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
 	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
 	ConstantBufferData.resize(BoxCount);

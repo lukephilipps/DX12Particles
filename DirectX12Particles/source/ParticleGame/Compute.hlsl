@@ -25,8 +25,11 @@ struct IndirectCommand
 
 cbuffer RootConstants : register(b0)
 {
-    float x;
-    float commandCount;
+    float emitCount;
+    float particleLifetime;
+    float3 emitPosition;
+    float3 emitVelocity;
+    float deltaTime;
 };
 
 StructuredBuffer<SceneConstantBuffer> cbv : register(t0); // SRV: Wrapped constant buffers
@@ -39,7 +42,10 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
     // Each thread of the CS operates on one of the indirect commands.
     uint index = (groupId.x * threadGroupSize) + groupIndex;
 
-    IndirectCommand command = inputCommands[index];
-    command.instanceCount = 10;
-    outputCommands.Append(command);
+    if (index < particleLifetime)
+    {
+        IndirectCommand command = inputCommands[index];
+        command.instanceCount = 10;
+        outputCommands.Append(command);
+    }
 }
