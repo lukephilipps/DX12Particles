@@ -19,6 +19,8 @@ struct IndirectCommand
     uint startIndexLocation;
     int baseVertexLocation;
     uint startInstanceLocation;
+    
+    uint padding;
 };
 
 cbuffer RootConstants : register(b0)
@@ -37,12 +39,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
     // Each thread of the CS operates on one of the indirect commands.
     uint index = (groupId.x * threadGroupSize) + groupIndex;
 
-    // Don't attempt to access commands that don't exist if more threads are allocated
-    // than commands.
-    if (index < 2 && cbv[index].rotation.x < 100000000.0f)
-    {
-        IndirectCommand command = inputCommands[index];
-        command.instanceCount = 10;
-        outputCommands.Append(command);
-    }
+    IndirectCommand command = inputCommands[index];
+    command.instanceCount = 10;
+    outputCommands.Append(command);
 }

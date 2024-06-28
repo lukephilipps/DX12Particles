@@ -125,7 +125,7 @@ uint64_t CommandQueue::ExecuteCommandList(ComPtr<ID3D12GraphicsCommandList2> com
 		commandList.Get()
 	};
 
-         	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
+	d3d12CommandQueue->ExecuteCommandLists(1, commandLists);
 	uint64_t fenceValue = Signal();
 
 	CAllocatorQueue.emplace(CommandAllocatorEntry{ fenceValue, commandAllocator });

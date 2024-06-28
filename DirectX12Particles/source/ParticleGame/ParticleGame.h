@@ -105,10 +105,13 @@ private:
 	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 
-	ComPtr<ID3D12RootSignature> DrawRootSignature;
-	ComPtr<ID3D12RootSignature> EmitRootSignature;
-	ComPtr<ID3D12PipelineState> PipelineState;
-	ComPtr<ID3D12PipelineState> ComputeState;
+	ComPtr<ID3D12RootSignature> RenderRS;
+	ComPtr<ID3D12RootSignature> EmitRS;
+	ComPtr<ID3D12RootSignature> SimulateRS;
+
+	ComPtr<ID3D12PipelineState> RenderPSO;
+	ComPtr<ID3D12PipelineState> EmitPSO;
+	ComPtr<ID3D12PipelineState> SimulatePSO;
 
 	D3D12_VIEWPORT Viewport;
 	D3D12_RECT ScissorRect;
@@ -125,4 +128,7 @@ private:
 
 	static const UINT MaxParticleCount = 1000;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
+	ComPtr<ID3D12Resource> DeadIndexList;
+	ComPtr<ID3D12Resource> AliveIndexList0;
+	ComPtr<ID3D12Resource> AliveIndexList1;
 };

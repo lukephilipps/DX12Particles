@@ -115,44 +115,56 @@ bool ParticleGame::LoadContent()
 			featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
 		}
 
+		ComPtr<ID3DBlob> RSBlob;
+		ComPtr<ID3DBlob> errorBlob;
+
+		// Create render root signature
 		CD3DX12_ROOT_PARAMETER1 rootParameters[1];
 		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, D3D12_SHADER_VISIBILITY_VERTEX);
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDescription;
-		rootSignatureDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
+		RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
-		// Serialize the root signature into binary
-		ComPtr<ID3DBlob> rootSignatureBlob;
-		ComPtr<ID3DBlob> errorBlob;
+		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&RSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&RenderRS)));
 
-		// Rewrites the root sig in version 1.0 even if passed in as 1.1 (if needed)
-		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
+		// Create emitter compute signature
+		CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
+		emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+		emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-		// Create the root signature YIPPEE
-		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&DrawRootSignature)));
+		CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
+		emitRootParameters[0].InitAsDescriptorTable(2, emitRanges);
+		emitRootParameters[1].InitAsConstants(9, 0);
 
-		// Create compute signature with a descriptor table
-		CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
-		ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-		ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC emitRSDescription;
+		emitRSDescription.Init_1_1(_countof(emitRootParameters), emitRootParameters);
 
-		// 2 compute parameters, our descriptor table and root constants
-		CD3DX12_ROOT_PARAMETER1 computeRootParameters[2];
-		computeRootParameters[0].InitAsDescriptorTable(2, ranges);
-		computeRootParameters[1].InitAsConstants(9, 0);
+		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&emitRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&EmitRS)));
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC computeRootSignatureDescription;
-		computeRootSignatureDescription.Init_1_1(_countof(computeRootParameters), computeRootParameters);
+		// Create simulation compute signature
+		CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
+		simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+		simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&computeRootSignatureDescription, featureData.HighestVersion, &rootSignatureBlob, &errorBlob));
-		ThrowIfFailed(device->CreateRootSignature(0, rootSignatureBlob->GetBufferPointer(), rootSignatureBlob->GetBufferSize(), IID_PPV_ARGS(&EmitRootSignature)));
+		CD3DX12_ROOT_PARAMETER1 simulateRootParameters[2];
+		simulateRootParameters[0].InitAsDescriptorTable(2, simulateRanges);
+		simulateRootParameters[1].InitAsConstants(9, 0);
+
+		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC simulateRSDescription;
+		simulateRSDescription.Init_1_1(_countof(simulateRootParameters), simulateRootParameters);
+
+		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&simulateRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&SimulateRS)));
 	}
 
 	// Create PSO's
 	{
 		ComPtr<ID3DBlob> vertexShader;
 		ComPtr<ID3DBlob> pixelShader;
-		ComPtr<ID3DBlob> computeShader;
+		ComPtr<ID3DBlob> computeEmitShader;
+		ComPtr<ID3DBlob> computeSimulateShader;
 		ComPtr<ID3DBlob> error;
 
 		// Get path to .exe directory (where .cso files are)
@@ -163,7 +175,8 @@ bool ParticleGame::LoadContent()
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &pixelShader));
-		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeEmitShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
 
 		// Define vertex input layout
 		D3D12_INPUT_ELEMENT_DESC inputLayout[] =
@@ -173,7 +186,7 @@ bool ParticleGame::LoadContent()
 		};
 
 		// Define rendering PSO
-		struct PipelineStateStream
+		struct RenderPipelineStateStream
 		{
 			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
 			CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
@@ -182,41 +195,57 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-		} pipelineStateStream;
+		} renderPSS;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-		pipelineStateStream.pRootSignature = DrawRootSignature.Get();
-		pipelineStateStream.InputLayout = { inputLayout, _countof(inputLayout) };
-		pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		pipelineStateStream.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		pipelineStateStream.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-		pipelineStateStream.RTVFormats = rtvFormats;
+		renderPSS.pRootSignature = RenderRS.Get();
+		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
+		renderPSS.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+		renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
+		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
+		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		renderPSS.RTVFormats = rtvFormats;
 
 		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
 		{
-			sizeof(PipelineStateStream), &pipelineStateStream
+			sizeof(RenderPipelineStateStream), &renderPSS
 		};
-		ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&PipelineState)));
+		ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&RenderPSO)));
 
-		// Define compute PSO
-		struct ComputePipelineStateStream
+		// Define emit PSO
+		struct EmitPipelineStateStream
 		{
 			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
 			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
-		} computePipelineStateStream;
+		} emitPSS;
 
-		computePipelineStateStream.pRootSignature = EmitRootSignature.Get();
-		computePipelineStateStream.CS = CD3DX12_SHADER_BYTECODE(computeShader.Get());;
+		emitPSS.pRootSignature = EmitRS.Get();
+		emitPSS.CS = CD3DX12_SHADER_BYTECODE(computeEmitShader.Get());;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC computePsoDesc =
+		D3D12_PIPELINE_STATE_STREAM_DESC emitPSODesc =
 		{
-			sizeof(ComputePipelineStateStream), &computePipelineStateStream
+			sizeof(EmitPipelineStateStream), &emitPSS
 		};
-		ThrowIfFailed(device->CreatePipelineState(&computePsoDesc, IID_PPV_ARGS(&ComputeState)));
+		ThrowIfFailed(device->CreatePipelineState(&emitPSODesc, IID_PPV_ARGS(&EmitPSO)));
+
+		// Define simulate PSO
+		struct SimulatePipelineStateStream
+		{
+			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+		} simulatePSS;
+
+		simulatePSS.pRootSignature = SimulateRS.Get();
+		simulatePSS.CS = CD3DX12_SHADER_BYTECODE(computeSimulateShader.Get());;
+
+		D3D12_PIPELINE_STATE_STREAM_DESC simulatePSODesc =
+		{
+			sizeof(SimulatePipelineStateStream), &simulatePSS
+		};
+		ThrowIfFailed(device->CreatePipelineState(&simulatePSODesc, IID_PPV_ARGS(&SimulatePSO)));
 	}
 
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
@@ -310,7 +339,7 @@ bool ParticleGame::LoadContent()
 		commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
 		commandSignatureDesc.ByteStride = sizeof(IndirectCommand);
 
-		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, DrawRootSignature.Get(), IID_PPV_ARGS(&CommandSignature)));
+		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, RenderRS.Get(), IID_PPV_ARGS(&CommandSignature)));
 	}
 
 	// Create command buffers/UAVs to store results of compute work
@@ -578,8 +607,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
 		D3D12_GPU_DESCRIPTOR_HANDLE SRV2UAV1Handle = SRV2UAV1Heap->GetGPUDescriptorHandleForHeapStart();
 
-		computeCommandList->SetPipelineState(ComputeState.Get());
-		computeCommandList->SetComputeRootSignature(EmitRootSignature.Get());
+		computeCommandList->SetPipelineState(EmitPSO.Get());
+		computeCommandList->SetComputeRootSignature(EmitRS.Get());
 
 		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
@@ -598,8 +627,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	// Rendering command list
 	{
 		// Set up PSO and root signature
-		commandList->SetPipelineState(PipelineState.Get());
-		commandList->SetGraphicsRootSignature(DrawRootSignature.Get());
+		commandList->SetPipelineState(RenderPSO.Get());
+		commandList->SetGraphicsRootSignature(RenderRS.Get());
 
 		// Bind descriptor heaps
 		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
@@ -613,8 +642,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		D3D12_RESOURCE_BARRIER barriers[2] = {
 			CD3DX12_RESOURCE_BARRIER::Transition(
 				UseCompute ? ProcessedCommandBuffers[currentBackBufferIndex].Get() : CommandBuffer.Get(),
-				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE,
-				D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
+				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
 			CD3DX12_RESOURCE_BARRIER::Transition(
 				backBuffer.Get(),
 				D3D12_RESOURCE_STATE_PRESENT,
