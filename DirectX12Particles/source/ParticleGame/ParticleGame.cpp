@@ -34,7 +34,7 @@ static WORD Indices[36] = {
 	4, 0, 3, 4, 3, 7
 };
 
-const UINT ParticleGame::CommandSizePerFrame = BoxCount * sizeof(IndirectCommand);
+const UINT ParticleGame::CommandSizePerFrame = MaxParticleCount * sizeof(IndirectCommand);
 const UINT ParticleGame::CommandBufferCounterOffset = (CommandSizePerFrame + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
 
 ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
@@ -48,7 +48,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, deltaTime(0)
 {
 	CSRootConstants.emitCount = 1;
-	CSRootConstants.particleLifetime = BoxCount;
+	CSRootConstants.particleLifetime = MaxParticleCount;
 	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
 	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
 	ParticleBufferData.resize(MaxParticleCount);
@@ -307,14 +307,14 @@ bool ParticleGame::LoadContent()
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Buffer.NumElements = BoxCount;
-		srvDesc.Buffer.StructureByteStride = sizeof(SceneConstantBuffer);
+		srvDesc.Buffer.NumElements = MaxParticleCount;
+		srvDesc.Buffer.StructureByteStride = sizeof(Particle);
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 0, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
-			srvDesc.Buffer.FirstElement = frame * BoxCount;
+			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
 			device->CreateShaderResourceView(ParticleBuffer.Get(), &srvDesc, cbvSrvHandle);
 			cbvSrvHandle.Offset(3, UAV4DescriptorSize);
 		}
@@ -368,7 +368,7 @@ bool ParticleGame::LoadContent()
 
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
-			for (UINT n = 0; n < BoxCount; ++n)
+			for (UINT n = 0; n < MaxParticleCount; ++n)
 			{
 				commands[commandIndex].cbv = gpuAdress;
 				commands[commandIndex].ibv = IndexBufferView;
@@ -379,7 +379,7 @@ bool ParticleGame::LoadContent()
 				commands[commandIndex].drawArguments.StartInstanceLocation = 0;
 
 				commandIndex++;
-				gpuAdress += sizeof(SceneConstantBuffer);
+				gpuAdress += sizeof(Particle);
 			}
 		}
 
@@ -397,14 +397,14 @@ bool ParticleGame::LoadContent()
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Buffer.NumElements = BoxCount;
+		srvDesc.Buffer.NumElements = MaxParticleCount;
 		srvDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE commandsHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 1, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
-			srvDesc.Buffer.FirstElement = frame * BoxCount;
+			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
 			device->CreateShaderResourceView(CommandBuffer.Get(), &srvDesc, commandsHandle);
 			commandsHandle.Offset(3, UAV4DescriptorSize);
 		}
@@ -427,7 +427,7 @@ bool ParticleGame::LoadContent()
 			uavDesc.Format = DXGI_FORMAT_UNKNOWN;
 			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
 			uavDesc.Buffer.FirstElement = 0;
-			uavDesc.Buffer.NumElements = BoxCount;
+			uavDesc.Buffer.NumElements = MaxParticleCount;
 			uavDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
 			uavDesc.Buffer.CounterOffsetInBytes = CommandBufferCounterOffset;
 			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
@@ -612,7 +612,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		// Reset UAV counter for this frame
 		computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
 
-		//computeCommandList->Dispatch(static_cast<UINT>(ceil(BoxCount / float(ComputeThreadGroupSize))), 1, 1);
+		//computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 
 		//// Simulate
 		//computeCommandList->SetPipelineState(SimulatePSO.Get());
@@ -620,7 +620,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
-		computeCommandList->Dispatch(static_cast<UINT>(ceil(BoxCount / float(ComputeThreadGroupSize))), 1, 1);
+		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 	}
 
 	// Rendering command list
@@ -665,7 +665,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		{
 			commandList->ExecuteIndirect(
 				CommandSignature.Get(),
-				BoxCount,
+				MaxParticleCount,
 				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
 				0,
 				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
@@ -675,7 +675,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		{
 			commandList->ExecuteIndirect(
 				CommandSignature.Get(),
-				BoxCount,
+				MaxParticleCount,
 				CommandBuffer.Get(),
 				CommandSizePerFrame * currentBackBufferIndex,
 				nullptr,

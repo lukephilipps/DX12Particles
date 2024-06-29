@@ -69,19 +69,6 @@ private:
 		UINT padding[1];
 	};
 
-	// Constant buffer definition.
-	struct SceneConstantBuffer
-	{
-		XMFLOAT4 rotation;
-		XMFLOAT4X4 M;
-		XMFLOAT4X4 V;
-		XMFLOAT4X4 P;
-
-		// Constant buffers are 256-byte aligned. Add padding in the struct to allow multiple buffers
-		// to be array-indexed.
-		float padding[12];
-	};
-
 	static const UINT BoxCount = 3;
 	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
 	static const UINT CommandSizePerFrame;                // The size of the indirect commands to draw all of the triangles in a single frame.

@@ -48,7 +48,7 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     v2f o;
     
     float4 pos = float4(mul(AngleAxis3x3(angle, normalize(float3(0, 1, 1))), i.Position), 1);
-    o.Position = mul(MVP, pos + float4(instanceID, 0, 0, 0));
+    o.Position = mul(MVP, pos + float4(instanceID, position.y, 0, 0));
     o.Color = float4(i.Color, 1.0f);
     
     return o;
