@@ -44,14 +44,14 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, FoV(45.0)
 	, ContentLoaded(false)
 	, drawOffset(0)
-	, UseCompute(true)
+	, UseCompute(false)
 	, deltaTime(0)
 {
 	CSRootConstants.emitCount = 1;
 	CSRootConstants.particleLifetime = BoxCount;
 	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
 	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
-	ConstantBufferData.resize(BoxCount);
+	ParticleBufferData.resize(MaxParticleCount);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -103,7 +103,7 @@ bool ParticleGame::LoadContent()
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
 		// 3 comes from the heap containing 3 subheaps (and * for each frame)
-		SRV2UAV1Heap = Application::Get().CreateDescriptorHeap(3 * Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		UAV4Heap = Application::Get().CreateDescriptorHeap(3 * Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	}
 
 	// Create root signatures
@@ -119,8 +119,9 @@ bool ParticleGame::LoadContent()
 		ComPtr<ID3DBlob> errorBlob;
 
 		// Create render root signature
-		CD3DX12_ROOT_PARAMETER1 rootParameters[1];
+		CD3DX12_ROOT_PARAMETER1 rootParameters[2];
 		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, D3D12_SHADER_VISIBILITY_VERTEX);
+		rootParameters[1].InitAsConstants(sizeof(VSRootConstants) / 4, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
 		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
 		RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
@@ -272,11 +273,11 @@ bool ParticleGame::LoadContent()
 	}
 
 	RTVDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	SRV2UAV1DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	UAV4DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
 	// Create constant buffers
 	{
-		const UINT constantBufferDataSize = BoxResourceCount * sizeof(SceneConstantBuffer);
+		const UINT constantBufferDataSize = ParticleResourceCount * sizeof(Particle);
 
 		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		CD3DX12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferDataSize);
@@ -286,28 +287,22 @@ bool ParticleGame::LoadContent()
 			&constantBufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&ConstantBuffer)));
-
-		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
-		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
-		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
-		const float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
+			IID_PPV_ARGS(&ParticleBuffer)));
 
 		// Init constant buffer for each box
-		for (UINT n = 0; n < BoxCount; ++n)
+		for (UINT n = 0; n < MaxParticleCount; ++n)
 		{
-			ConstantBufferData[n].rotation = XMFLOAT4(0, 0, 0, 0);
-			XMStoreFloat4x4(&ConstantBufferData[n].M, XMMatrixTranslation(0, 0, 0));
-			XMStoreFloat4x4(&ConstantBufferData[n].V, XMMatrixLookAtLH(eyePosition, focusPoint, upDirection));
-			XMStoreFloat4x4(&ConstantBufferData[n].P, XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f));
+			ParticleBufferData[n].position = XMFLOAT3(0, 0, 0);
+			ParticleBufferData[n].velocity = XMFLOAT3(0, 0, 0);
+			ParticleBufferData[n].age = 0;
 		}
 
 		// Map and init the constant buffer
 		CD3DX12_RANGE readRange(0, 0); // No CPU reading, read from no range
-		ThrowIfFailed(ConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&CbvDataBegin)));
-		memcpy(CbvDataBegin, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
+		ThrowIfFailed(ParticleBuffer->Map(0, &readRange, reinterpret_cast<void**>(&ParticleBufferDataBegin)));
+		memcpy(ParticleBufferDataBegin, &ParticleBufferData[0], MaxParticleCount * sizeof(Particle));
 
-		// Create SRV for constant buffer of compute shader to read from (SRV2UAV1Buffer index 0)
+		// Create SRV for constant buffer of compute shaders to read from (UAV4Buffer index 0)
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -316,12 +311,12 @@ bool ParticleGame::LoadContent()
 		srvDesc.Buffer.StructureByteStride = sizeof(SceneConstantBuffer);
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-		CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 0, SRV2UAV1DescriptorSize);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 0, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			srvDesc.Buffer.FirstElement = frame * BoxCount;
-			device->CreateShaderResourceView(ConstantBuffer.Get(), &srvDesc, cbvSrvHandle);
-			cbvSrvHandle.Offset(3, SRV2UAV1DescriptorSize);
+			device->CreateShaderResourceView(ParticleBuffer.Get(), &srvDesc, cbvSrvHandle);
+			cbvSrvHandle.Offset(3, UAV4DescriptorSize);
 		}
 	}
 
@@ -345,7 +340,7 @@ bool ParticleGame::LoadContent()
 	// Create command buffers/UAVs to store results of compute work
 	{
 		std::vector<IndirectCommand> commands;
-		commands.resize(BoxResourceCount);
+		commands.resize(ParticleResourceCount);
 		const UINT commandBufferSize = CommandSizePerFrame * Window::BufferCount;
 
 		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
@@ -368,7 +363,7 @@ bool ParticleGame::LoadContent()
 			nullptr,
 			IID_PPV_ARGS(&intermediateCommandBuffer)));
 
-		D3D12_GPU_VIRTUAL_ADDRESS gpuAdress = ConstantBuffer->GetGPUVirtualAddress();
+		D3D12_GPU_VIRTUAL_ADDRESS gpuAdress = ParticleBuffer->GetGPUVirtualAddress();
 		UINT commandIndex = 0;
 
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
@@ -406,16 +401,16 @@ bool ParticleGame::LoadContent()
 		srvDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 
-		CD3DX12_CPU_DESCRIPTOR_HANDLE commandsHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 1, SRV2UAV1DescriptorSize);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE commandsHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 1, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			srvDesc.Buffer.FirstElement = frame * BoxCount;
 			device->CreateShaderResourceView(CommandBuffer.Get(), &srvDesc, commandsHandle);
-			commandsHandle.Offset(3, SRV2UAV1DescriptorSize);
+			commandsHandle.Offset(3, UAV4DescriptorSize);
 		}
 
 		// Create UAV's to store results of compute work (SRV2UAV1Buffer index 2)
-		CD3DX12_CPU_DESCRIPTOR_HANDLE processedCommandsHandle(SRV2UAV1Heap->GetCPUDescriptorHandleForHeapStart(), 2, SRV2UAV1DescriptorSize);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE processedCommandsHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 2, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			// Allocate a buffer large enough to hold all indirect commands for a frame plus 1 UAV counter
@@ -439,7 +434,7 @@ bool ParticleGame::LoadContent()
 
 			device->CreateUnorderedAccessView(ProcessedCommandBuffers[frame].Get(), ProcessedCommandBuffers[frame].Get(), &uavDesc, processedCommandsHandle);
 
-			processedCommandsHandle.Offset(3, SRV2UAV1DescriptorSize);
+			processedCommandsHandle.Offset(3, UAV4DescriptorSize);
 		}
 
 		// Allocate buffer to reset UAV counters and initialize it to 0
@@ -550,31 +545,28 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 	
 	// Update constant info for next frame's buffer
 	{
-		// Get model matrix
-		XMMATRIX identityMatrix = XMMatrixIdentity();
-
-		// Update view matrix
 		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
 		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
-		ViewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+		XMMATRIX viewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
 
-		// Update projection matrix
 		float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
-		ProjectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
+		XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
 
-		float angle = static_cast<float>(e.TotalTime * 90);
+		float angle = XMConvertToRadians(static_cast<float>(e.TotalTime * 90));
+		VSRootConstants.MVP = XMMatrixMultiply(viewMatrix, projectionMatrix);
+		VSRootConstants.InvView = XMMatrixInverse(nullptr, viewMatrix);
+		VSRootConstants.angle = angle;
 
-		for (UINT n = 0; n < BoxCount; n++)
+		for (UINT n = 0; n < MaxParticleCount; ++n)
 		{
-			ConstantBufferData[n].rotation = XMFLOAT4(XMConvertToRadians(angle), (float)n, 0, 0);
-			XMStoreFloat4x4(&ConstantBufferData[n].M, identityMatrix);
-			XMStoreFloat4x4(&ConstantBufferData[n].V, ViewMatrix);
-			XMStoreFloat4x4(&ConstantBufferData[n].P, ProjectionMatrix);
+			ParticleBufferData[n].position = XMFLOAT3(0, n, 0);
+			ParticleBufferData[n].velocity = XMFLOAT3(0, 0, 0);
+			ParticleBufferData[n].age = 0;
 		}
 
-		UINT8* destination = CbvDataBegin + (BoxCount * pWindow->GetCurrentBackBufferIndex() * sizeof(SceneConstantBuffer));
-		memcpy(destination, &ConstantBufferData[0], BoxCount * sizeof(SceneConstantBuffer));
+		UINT8* destination = ParticleBufferDataBegin + (MaxParticleCount * pWindow->GetCurrentBackBufferIndex() * sizeof(Particle));
+		memcpy(destination, &ParticleBufferData[0], MaxParticleCount * sizeof(Particle));
 
 		CSRootConstants.deltaTime = deltaTime;
 	}
@@ -605,19 +597,26 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	if (UseCompute)
 	{
 		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
-		D3D12_GPU_DESCRIPTOR_HANDLE SRV2UAV1Handle = SRV2UAV1Heap->GetGPUDescriptorHandleForHeapStart();
+		D3D12_GPU_DESCRIPTOR_HANDLE UAV4Handle = UAV4Heap->GetGPUDescriptorHandleForHeapStart();
 
+		// Emit
 		computeCommandList->SetPipelineState(EmitPSO.Get());
 		computeCommandList->SetComputeRootSignature(EmitRS.Get());
 
-		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
+		ID3D12DescriptorHeap* ppHeaps[] = { UAV4Heap.Get() };
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(SRV2UAV1Handle, frameDescriptorOffset, SRV2UAV1DescriptorSize));
-		computeCommandList->SetComputeRoot32BitConstants(1, 9, reinterpret_cast<void*>(&CSRootConstants), 0);
+		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(UAV4Handle, frameDescriptorOffset, UAV4DescriptorSize));
+		computeCommandList->SetComputeRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 
 		// Reset UAV counter for this frame
 		computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
+
+		//computeCommandList->Dispatch(static_cast<UINT>(ceil(BoxCount / float(ComputeThreadGroupSize))), 1, 1);
+
+		//// Simulate
+		//computeCommandList->SetPipelineState(SimulatePSO.Get());
+		//computeCommandList->SetComputeRootSignature(SimulateRS.Get());
 
 		TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
@@ -631,7 +630,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 
 		// Bind descriptor heaps
-		ID3D12DescriptorHeap* ppHeaps[] = { SRV2UAV1Heap.Get() };
+		ID3D12DescriptorHeap* ppHeaps[] = { UAV4Heap.Get() };
 		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 		// Set up rasterizer state
@@ -650,17 +649,16 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		};
 		commandList->ResourceBarrier(_countof(barriers), barriers);
 
-		// Bind render targets
 		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-		// Clear targets
 		const FLOAT clearColor[] = { 0.3f, 0.2f, 0.1f, 1.0f };
 		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
-		// Set up input assembler
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
+
+		commandList->SetGraphicsRoot32BitConstants(1, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 
 		// Draw
 		if (UseCompute)

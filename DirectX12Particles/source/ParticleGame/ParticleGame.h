@@ -40,9 +40,17 @@ private:
 		XMFLOAT3 position;
 		XMFLOAT3 velocity;
 		float age;
+
+		float padding[57];
 	};
 
-	// Root constants for the compute shader.
+	struct VSRootConstants
+	{
+		XMMATRIX MVP;
+		XMMATRIX InvView;
+		float angle;
+	};
+
 	struct CSRootConstants
 	{
 		float emitCount;
@@ -80,23 +88,20 @@ private:
 	static const UINT CommandBufferCounterOffset;         // The offset of the UAV counter in the processed command buffer.
 	static const UINT ComputeThreadGroupSize = 128;       // Should match the value in compute.hlsl.
 
-	std::vector<SceneConstantBuffer> ConstantBufferData;
-	UINT8* CbvDataBegin;
-
-	CSRootConstants CSRootConstants;    // Constants for the compute shader.
+	VSRootConstants VSRootConstants;
+	CSRootConstants CSRootConstants;
 
 	ComPtr<ID3D12CommandSignature> CommandSignature;
 
 	uint64_t FenceValues[Window::BufferCount] = {};
 
 	ComPtr<ID3D12DescriptorHeap> DSVHeap;
-	ComPtr<ID3D12DescriptorHeap> SRV2UAV1Heap;
+	ComPtr<ID3D12DescriptorHeap> UAV4Heap;
 
 	UINT RTVDescriptorSize;
-	UINT SRV2UAV1DescriptorSize;
+	UINT UAV4DescriptorSize;
 
 	ComPtr<ID3D12Resource> VertexBuffer;
-	ComPtr<ID3D12Resource> ConstantBuffer;
 	ComPtr<ID3D12Resource> IndexBuffer;
 	ComPtr<ID3D12Resource> DepthBuffer;
 	ComPtr<ID3D12Resource> CommandBuffer;
@@ -120,14 +125,14 @@ private:
 	float drawOffset;
 	float deltaTime;
 
-	DirectX::XMMATRIX ViewMatrix;
-	DirectX::XMMATRIX ProjectionMatrix;
-
 	bool ContentLoaded;
 	bool UseCompute;
 
+	std::vector<Particle> ParticleBufferData;
+	UINT8* ParticleBufferDataBegin;
 	static const UINT MaxParticleCount = 1000;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
+	ComPtr<ID3D12Resource> ParticleBuffer;
 	ComPtr<ID3D12Resource> DeadIndexList;
 	ComPtr<ID3D12Resource> AliveIndexList0;
 	ComPtr<ID3D12Resource> AliveIndexList1;

@@ -1,9 +1,15 @@
-cbuffer SceneConstantBuffer : register(b0)
+cbuffer ParticleData : register(b0)
 {
-    float4 rotation;
-    matrix M;
-    matrix V;
-    matrix P;
+    float3 position;
+    float3 velocity;
+    float age;
+};
+
+cbuffer Matrices : register(b1)
+{
+    matrix MVP;
+    matrix InvView;
+    float angle;
 };
 
 struct appdata
@@ -41,11 +47,8 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
 {
     v2f o;
     
-    // Get model pos, rotate by SceneConstantBuffer.rotation and offset by insanceID
-    float4 modelPos = float4(mul(AngleAxis3x3(rotation.x, normalize(float3(0, 1, 1))), i.Position), 1);
-    modelPos.x += instanceID * 5;
-    
-    o.Position = mul(P, mul(V, mul(M, modelPos + float4(0, rotation.y * x, 0, 0))));
+    float4 pos = float4(mul(AngleAxis3x3(angle, normalize(float3(0, 1, 1))), i.Position), 1);
+    o.Position = mul(MVP, pos + float4(instanceID, 0, 0, 0));
     o.Color = float4(i.Color, 1.0f);
     
     return o;
