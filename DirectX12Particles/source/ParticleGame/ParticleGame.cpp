@@ -34,8 +34,7 @@ static WORD Indices[36] = {
 	4, 0, 3, 4, 3, 7
 };
 
-const UINT ParticleGame::CommandSizePerFrame = MaxParticleCount * sizeof(IndirectCommand);
-const UINT ParticleGame::CommandBufferCounterOffset = (CommandSizePerFrame + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
+const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
 
 ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool vSync)
 	: super(name, width, height, vSync)
@@ -61,14 +60,14 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 
 	size_t bufferSize = numElements * elementSize;
 
-	CD3DX12_RESOURCE_DESC vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize, flags);
 
 	// Create a committed resource in GPU mem
 	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
 	ThrowIfFailed(device->CreateCommittedResource(
 		&defaultHeapProperties,
 		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferDesc,
+		&bufferDesc,
 		D3D12_RESOURCE_STATE_COPY_DEST,
 		nullptr,
 		IID_PPV_ARGS(pDestinationResource)));
@@ -76,11 +75,12 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 	// Create a committed resource for the upload
 	if (bufferData)
 	{
+		bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
 		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		ThrowIfFailed(device->CreateCommittedResource(
 			&uploadHeapProperties,
 			D3D12_HEAP_FLAG_NONE,
-			&vertexBufferDesc,
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(pIntermediateResource)));
@@ -94,6 +94,45 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 	}
 }
 
+void ParticleGame::UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
+	size_t bufferSize, const void* bufferData)
+{
+	auto device = Application::Get().GetDevice();
+
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize + sizeof(UINT), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+
+	// Create a committed resource in GPU mem
+	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	ThrowIfFailed(device->CreateCommittedResource(
+		&defaultHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(pDestinationResource)));
+
+	// Create a committed resource for the upload
+	if (bufferData)
+	{
+		bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
+		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&uploadHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(pIntermediateResource)));
+
+		D3D12_SUBRESOURCE_DATA subresourceData = {};
+		subresourceData.pData = bufferData;
+		subresourceData.RowPitch = bufferSize;
+		subresourceData.SlicePitch = subresourceData.RowPitch;
+		
+		UpdateSubresources(commandList.Get(), *pDestinationResource, *pIntermediateResource, 0, 0, 1, &subresourceData);
+	}
+}
+
 bool ParticleGame::LoadContent()
 {
 	auto device = Application::Get().GetDevice();
@@ -101,9 +140,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-
-		// 3 comes from the heap containing 3 subheaps (and * for each frame)
-		UAV4Heap = Application::Get().CreateDescriptorHeap(3 * Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(4 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	}
 
 	// Create root signatures
@@ -119,45 +156,53 @@ bool ParticleGame::LoadContent()
 		ComPtr<ID3DBlob> errorBlob;
 
 		// Create render root signature
-		CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-		rootParameters[0].InitAsConstantBufferView(0, 0, D3D12_ROOT_DESCRIPTOR_FLAG_DATA_STATIC, D3D12_SHADER_VISIBILITY_VERTEX);
-		rootParameters[1].InitAsConstants(sizeof(VSRootConstants) / 4, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+		{
+			CD3DX12_DESCRIPTOR_RANGE1 renderRanges[1];
+			renderRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
-		RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+			CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+			rootParameters[0].InitAsDescriptorTable(_countof(renderRanges), renderRanges);
+			rootParameters[1].InitAsConstants(sizeof(VSRootConstants) / 4, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
 
-		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&RSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
-		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&RenderRS)));
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
+			RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&RSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&RenderRS)));
+		}
 
 		// Create emitter compute signature
-		CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
-		emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-		emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+		{
+			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
+			emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-		CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
-		emitRootParameters[0].InitAsDescriptorTable(2, emitRanges);
-		emitRootParameters[1].InitAsConstants(9, 0);
+			CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
+			emitRootParameters[0].InitAsDescriptorTable(_countof(emitRanges), emitRanges);
+			emitRootParameters[1].InitAsConstants(sizeof(CSRootConstants) / 4, 0);
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC emitRSDescription;
-		emitRSDescription.Init_1_1(_countof(emitRootParameters), emitRootParameters);
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC emitRSDescription;
+			emitRSDescription.Init_1_1(_countof(emitRootParameters), emitRootParameters);
 
-		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&emitRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
-		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&EmitRS)));
+			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&emitRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&EmitRS)));
+		}
 
 		// Create simulation compute signature
-		CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
-		simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-		simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+		{
+			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
+			simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-		CD3DX12_ROOT_PARAMETER1 simulateRootParameters[2];
-		simulateRootParameters[0].InitAsDescriptorTable(2, simulateRanges);
-		simulateRootParameters[1].InitAsConstants(9, 0);
+			CD3DX12_ROOT_PARAMETER1 simulateRootParameters[1];
+			simulateRootParameters[0].InitAsDescriptorTable(_countof(simulateRanges), simulateRanges);
 
-		CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC simulateRSDescription;
-		simulateRSDescription.Init_1_1(_countof(simulateRootParameters), simulateRootParameters);
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC simulateRSDescription;
+			simulateRSDescription.Init_1_1(_countof(simulateRootParameters), simulateRootParameters);
 
-		ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&simulateRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
-		ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&SimulateRS)));
+			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&simulateRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&SimulateRS)));
+		}
 	}
 
 	// Create PSO's
@@ -179,86 +224,92 @@ bool ParticleGame::LoadContent()
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeEmitShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
 
-		// Define vertex input layout
-		D3D12_INPUT_ELEMENT_DESC inputLayout[] =
-		{
-			{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-			{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-		};
-
 		// Define rendering PSO
-		struct RenderPipelineStateStream
 		{
-			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-			CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
-			CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
-			CD3DX12_PIPELINE_STATE_STREAM_VS VS;
-			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
-			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
-			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
-		} renderPSS;
+			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
+			{
+				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+				{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+			};
 
-		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
-		rtvFormats.NumRenderTargets = 1;
-		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+			struct RenderPipelineStateStream
+			{
+				CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+				CD3DX12_PIPELINE_STATE_STREAM_INPUT_LAYOUT InputLayout;
+				CD3DX12_PIPELINE_STATE_STREAM_PRIMITIVE_TOPOLOGY PrimitiveTopologyType;
+				CD3DX12_PIPELINE_STATE_STREAM_VS VS;
+				CD3DX12_PIPELINE_STATE_STREAM_PS PS;
+				CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
+				CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+			} renderPSS;
 
-		renderPSS.pRootSignature = RenderRS.Get();
-		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
-		renderPSS.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-		renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-		renderPSS.RTVFormats = rtvFormats;
+			D3D12_RT_FORMAT_ARRAY rtvFormats = {};
+			rtvFormats.NumRenderTargets = 1;
+			rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
-		{
-			sizeof(RenderPipelineStateStream), &renderPSS
-		};
-		ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&RenderPSO)));
+			renderPSS.pRootSignature = RenderRS.Get();
+			renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
+			renderPSS.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
+			renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
+			renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+			renderPSS.RTVFormats = rtvFormats;
+
+			D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
+			{
+				sizeof(RenderPipelineStateStream), &renderPSS
+			};
+			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&RenderPSO)));
+		}
 
 		// Define emit PSO
-		struct EmitPipelineStateStream
 		{
-			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
-		} emitPSS;
+			struct EmitPipelineStateStream
+			{
+				CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+				CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+			} emitPSS;
 
-		emitPSS.pRootSignature = EmitRS.Get();
-		emitPSS.CS = CD3DX12_SHADER_BYTECODE(computeEmitShader.Get());;
+			emitPSS.pRootSignature = EmitRS.Get();
+			emitPSS.CS = CD3DX12_SHADER_BYTECODE(computeEmitShader.Get());;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC emitPSODesc =
-		{
-			sizeof(EmitPipelineStateStream), &emitPSS
-		};
-		ThrowIfFailed(device->CreatePipelineState(&emitPSODesc, IID_PPV_ARGS(&EmitPSO)));
+			D3D12_PIPELINE_STATE_STREAM_DESC emitPSODesc =
+			{
+				sizeof(EmitPipelineStateStream), &emitPSS
+			};
+			ThrowIfFailed(device->CreatePipelineState(&emitPSODesc, IID_PPV_ARGS(&EmitPSO)));
+		}
 
 		// Define simulate PSO
-		struct SimulatePipelineStateStream
 		{
-			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
-		} simulatePSS;
+			struct SimulatePipelineStateStream
+			{
+				CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+				CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+			} simulatePSS;
 
-		simulatePSS.pRootSignature = SimulateRS.Get();
-		simulatePSS.CS = CD3DX12_SHADER_BYTECODE(computeSimulateShader.Get());;
+			simulatePSS.pRootSignature = SimulateRS.Get();
+			simulatePSS.CS = CD3DX12_SHADER_BYTECODE(computeSimulateShader.Get());;
 
-		D3D12_PIPELINE_STATE_STREAM_DESC simulatePSODesc =
-		{
-			sizeof(SimulatePipelineStateStream), &simulatePSS
-		};
-		ThrowIfFailed(device->CreatePipelineState(&simulatePSODesc, IID_PPV_ARGS(&SimulatePSO)));
+			D3D12_PIPELINE_STATE_STREAM_DESC simulatePSODesc =
+			{
+				sizeof(SimulatePipelineStateStream), &simulatePSS
+			};
+			ThrowIfFailed(device->CreatePipelineState(&simulatePSODesc, IID_PPV_ARGS(&SimulatePSO)));
+		}
 	}
 
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
 	auto commandList = commandQueue->GetCommandList();
 	ComPtr<ID3D12Resource> intermediateVertexBuffer;
 	ComPtr<ID3D12Resource> intermediateIndexBuffer;
-	ComPtr<ID3D12Resource> intermediateCommandBuffer;
 
 	// Create Vertex/Index Buffer
 	{
 		UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
 		TransitionResource(commandList, VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		VertexBuffer->SetName(L"VertexBuffer");
+		intermediateVertexBuffer->SetName(L"IntVertexBuffer");
 
 		VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
 		VertexBufferView.SizeInBytes = sizeof(Vertices);
@@ -266,43 +317,86 @@ bool ParticleGame::LoadContent()
 
 		UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);
 		TransitionResource(commandList, IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		IndexBuffer->SetName(L"IndexBuffer");
+		intermediateIndexBuffer->SetName(L"IndexBuffer");
 
 		IndexBufferView.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
 		IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
 		IndexBufferView.SizeInBytes = sizeof(Indices);
 	}
 
-	RTVDescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
-	UAV4DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	ComPtr<ID3D12Resource> intermediateParticleBuffer;
+	ComPtr<ID3D12Resource> intermediateAlive0Buffer;
+	ComPtr<ID3D12Resource> intermediateAlive1Buffer;
+	ComPtr<ID3D12Resource> intermediateDeadBuffer;
+	ComPtr<ID3D12Resource> intermediateStagedParticleBuffer;
 
-	// Create constant buffers
+	// Define descriptor heap
 	{
-		const UINT constantBufferDataSize = ParticleResourceCount * sizeof(Particle);
+		Particle particleData[MaxParticleCount];
+		Particle stagedParticleData[MaxParticleCount * Window::BufferCount];
+		UINT particleIndices[MaxParticleCount];
 
-		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		CD3DX12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(constantBufferDataSize);
-		ThrowIfFailed(device->CreateCommittedResource(
-			&heapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&constantBufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&ParticleBuffer)));
-
-		// Init constant buffer for each box
-		for (UINT n = 0; n < MaxParticleCount; ++n)
+		for (UINT n = 0; n < MaxParticleCount; n++)
 		{
-			ParticleBufferData[n].position = XMFLOAT3(0, 0, 0);
-			ParticleBufferData[n].velocity = XMFLOAT3(0, 0, 0);
-			ParticleBufferData[n].age = 0;
+			particleData[n] = {};
+			particleIndices[n] = n;
 		}
 
-		// Map and init the constant buffer
-		CD3DX12_RANGE readRange(0, 0); // No CPU reading, read from no range
-		ThrowIfFailed(ParticleBuffer->Map(0, &readRange, reinterpret_cast<void**>(&ParticleBufferDataBegin)));
-		memcpy(ParticleBufferDataBegin, &ParticleBufferData[0], MaxParticleCount * sizeof(Particle));
+		UINT index = 0;
+		for (UINT frame = 0; frame < Window::BufferCount; frame++)
+		{
+			for (UINT n = 0; n < MaxParticleCount; n++)
+			{
+				stagedParticleData[index] = {};
+				++index;
+			}
+		}
 
-		// Create SRV for constant buffer of compute shaders to read from (UAV4Buffer index 0)
+		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSize);
+
+		// Entry 0, Particle buffer for compute shaders
+		UpdateBufferResource(commandList.Get(), &ParticleBuffer, &intermediateParticleBuffer, _countof(particleData), sizeof(Particle), particleData, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+		D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+		uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
+		uavDesc.Buffer.FirstElement = 0;
+		uavDesc.Buffer.NumElements = MaxParticleCount;
+		uavDesc.Buffer.StructureByteStride = sizeof(Particle);
+		uavDesc.Buffer.CounterOffsetInBytes = 0;
+		uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
+		device->CreateUnorderedAccessView(ParticleBuffer.Get(), nullptr, &uavDesc, descriptorHandle);
+		ParticleBuffer->SetName(L"Particle Buffer");
+		intermediateParticleBuffer->SetName(L"Particle Buffer");
+
+		// Entry 1, Alive particle index buffer 0
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList0, &intermediateAlive0Buffer, ParticleBufferCounterOffset, particleIndices);
+		uavDesc.Buffer.StructureByteStride = sizeof(UINT);
+		uavDesc.Buffer.CounterOffsetInBytes = ParticleBufferCounterOffset;
+		device->CreateUnorderedAccessView(AliveIndexList0.Get(), AliveIndexList0.Get(), &uavDesc, descriptorHandle);
+		AliveIndexList0->SetName(L"Alive0 Index List");
+		intermediateAlive0Buffer->SetName(L"Alive0 Index List");
+
+		// Entry 2, Alive particle index buffer 1
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList1, &intermediateAlive1Buffer, ParticleBufferCounterOffset, particleIndices);
+		device->CreateUnorderedAccessView(AliveIndexList1.Get(), AliveIndexList1.Get(), &uavDesc, descriptorHandle);
+		AliveIndexList1->SetName(L"Alive1 Index List");
+		intermediateAlive1Buffer->SetName(L"Alive1 Index List");
+
+		// Entry 3, Dead particle index buffer
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResourceWithCounter(commandList.Get(), &DeadIndexList, &intermediateDeadBuffer, ParticleBufferCounterOffset, particleIndices);
+		device->CreateUnorderedAccessView(DeadIndexList.Get(), DeadIndexList.Get(), &uavDesc, descriptorHandle);
+		//TransitionResource(commandList, DeadIndexList, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		DeadIndexList->SetName(L"Dead Index List");
+		intermediateDeadBuffer->SetName(L"Dead Index List");
+
+		// Entries 4-6, Staged particle data for rendering
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResource(commandList.Get(), &StagedParticleBuffers, &intermediateStagedParticleBuffer, _countof(stagedParticleData), sizeof(Particle), stagedParticleData);
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
@@ -310,148 +404,32 @@ bool ParticleGame::LoadContent()
 		srvDesc.Buffer.NumElements = MaxParticleCount;
 		srvDesc.Buffer.StructureByteStride = sizeof(Particle);
 		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-
-		CD3DX12_CPU_DESCRIPTOR_HANDLE cbvSrvHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 0, UAV4DescriptorSize);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
-			device->CreateShaderResourceView(ParticleBuffer.Get(), &srvDesc, cbvSrvHandle);
-			cbvSrvHandle.Offset(3, UAV4DescriptorSize);
+			device->CreateShaderResourceView(StagedParticleBuffers.Get(), &srvDesc, descriptorHandle);
+			descriptorHandle.Offset(1, DescriptorSize);
 		}
-	}
+		StagedParticleBuffers->SetName(L"Staged Particle Buffers");
+		intermediateStagedParticleBuffer->SetName(L"Staged Particle Buffers");
 
-	// Create command signature for indirect drawing
-	{
-		// Each call contains a CBV update and a DrawInstanced call
-		D3D12_INDIRECT_ARGUMENT_DESC argumentDescs[3] = {};
-		argumentDescs[0].Type = D3D12_INDIRECT_ARGUMENT_TYPE_CONSTANT_BUFFER_VIEW;
-		argumentDescs[0].ConstantBufferView.RootParameterIndex = 0;
-		argumentDescs[1].Type = D3D12_INDIRECT_ARGUMENT_TYPE_INDEX_BUFFER_VIEW;
-		argumentDescs[2].Type = D3D12_INDIRECT_ARGUMENT_TYPE_DRAW_INDEXED;
-
-		D3D12_COMMAND_SIGNATURE_DESC commandSignatureDesc = {};
-		commandSignatureDesc.pArgumentDescs = argumentDescs;
-		commandSignatureDesc.NumArgumentDescs = _countof(argumentDescs);
-		commandSignatureDesc.ByteStride = sizeof(IndirectCommand);
-
-		ThrowIfFailed(device->CreateCommandSignature(&commandSignatureDesc, RenderRS.Get(), IID_PPV_ARGS(&CommandSignature)));
-	}
-
-	// Create command buffers/UAVs to store results of compute work
-	{
-		std::vector<IndirectCommand> commands;
-		commands.resize(ParticleResourceCount);
-		const UINT commandBufferSize = CommandSizePerFrame * Window::BufferCount;
-
-		CD3DX12_HEAP_PROPERTIES heapProperties(D3D12_HEAP_TYPE_DEFAULT);
-		D3D12_RESOURCE_DESC commandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(commandBufferSize);
-		ThrowIfFailed(device->CreateCommittedResource(
-			&heapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&commandBufferDesc,
-			D3D12_RESOURCE_STATE_COPY_DEST,
-			nullptr,
-			IID_PPV_ARGS(&CommandBuffer)));
-
+		// UAV counter reset (really only for AliveBuffer1)
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
 		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		D3D12_RESOURCE_DESC uploadCommandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(commandBufferSize);
 		ThrowIfFailed(device->CreateCommittedResource(
 			&uploadHeapProperties,
 			D3D12_HEAP_FLAG_NONE,
-			&uploadCommandBufferDesc,
+			&bufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
-			IID_PPV_ARGS(&intermediateCommandBuffer)));
-
-		D3D12_GPU_VIRTUAL_ADDRESS gpuAdress = ParticleBuffer->GetGPUVirtualAddress();
-		UINT commandIndex = 0;
-
-		for (UINT frame = 0; frame < Window::BufferCount; frame++)
-		{
-			for (UINT n = 0; n < MaxParticleCount; ++n)
-			{
-				commands[commandIndex].cbv = gpuAdress;
-				commands[commandIndex].ibv = IndexBufferView;
-				commands[commandIndex].drawArguments.IndexCountPerInstance = _countof(Indices);
-				commands[commandIndex].drawArguments.InstanceCount = 1;
-				commands[commandIndex].drawArguments.StartIndexLocation = 0;
-				commands[commandIndex].drawArguments.BaseVertexLocation = 0;
-				commands[commandIndex].drawArguments.StartInstanceLocation = 0;
-
-				commandIndex++;
-				gpuAdress += sizeof(Particle);
-			}
-		}
-
-		// Copy data to intermediate (upload) heap then to command buffer
-		D3D12_SUBRESOURCE_DATA commandData = {};
-		commandData.pData = reinterpret_cast<UINT8*>(&commands[0]);
-		commandData.RowPitch = commandBufferSize;
-		commandData.SlicePitch = commandData.RowPitch;
-
-		UpdateSubresources<1>(commandList.Get(), CommandBuffer.Get(), intermediateCommandBuffer.Get(), 0, 0, 1, &commandData);
-		TransitionResource(commandList, CommandBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-
-		// Create SRV 2, input command buffer (SRV2UAV1Buffer index 1)
-		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
-		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		srvDesc.Buffer.NumElements = MaxParticleCount;
-		srvDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
-		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-
-		CD3DX12_CPU_DESCRIPTOR_HANDLE commandsHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 1, UAV4DescriptorSize);
-		for (UINT frame = 0; frame < Window::BufferCount; frame++)
-		{
-			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
-			device->CreateShaderResourceView(CommandBuffer.Get(), &srvDesc, commandsHandle);
-			commandsHandle.Offset(3, UAV4DescriptorSize);
-		}
-
-		// Create UAV's to store results of compute work (SRV2UAV1Buffer index 2)
-		CD3DX12_CPU_DESCRIPTOR_HANDLE processedCommandsHandle(UAV4Heap->GetCPUDescriptorHandleForHeapStart(), 2, UAV4DescriptorSize);
-		for (UINT frame = 0; frame < Window::BufferCount; frame++)
-		{
-			// Allocate a buffer large enough to hold all indirect commands for a frame plus 1 UAV counter
-			commandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(CommandBufferCounterOffset + sizeof(UINT), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-			ThrowIfFailed(device->CreateCommittedResource(
-				&heapProperties,
-				D3D12_HEAP_FLAG_NONE,
-				&commandBufferDesc,
-				D3D12_RESOURCE_STATE_COPY_DEST,
-				nullptr,
-				IID_PPV_ARGS(&ProcessedCommandBuffers[frame])));
-
-			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
-			uavDesc.Format = DXGI_FORMAT_UNKNOWN;
-			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_BUFFER;
-			uavDesc.Buffer.FirstElement = 0;
-			uavDesc.Buffer.NumElements = MaxParticleCount;
-			uavDesc.Buffer.StructureByteStride = sizeof(IndirectCommand);
-			uavDesc.Buffer.CounterOffsetInBytes = CommandBufferCounterOffset;
-			uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
-
-			device->CreateUnorderedAccessView(ProcessedCommandBuffers[frame].Get(), ProcessedCommandBuffers[frame].Get(), &uavDesc, processedCommandsHandle);
-
-			processedCommandsHandle.Offset(3, UAV4DescriptorSize);
-		}
-
-		// Allocate buffer to reset UAV counters and initialize it to 0
-		D3D12_RESOURCE_DESC resetCommandBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
-		ThrowIfFailed(device->CreateCommittedResource(
-			&uploadHeapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&resetCommandBufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(&ProcessedCommandBufferCounterReset)));
+			IID_PPV_ARGS(&UAVCounterReset)));
 
 		UINT8* pMappedCounterReset = nullptr;
 		CD3DX12_RANGE readRange(0, 0);
-		ThrowIfFailed(ProcessedCommandBufferCounterReset->Map(0, &readRange, reinterpret_cast<void**>(&pMappedCounterReset)));
+		ThrowIfFailed(UAVCounterReset->Map(0, &readRange, reinterpret_cast<void**>(&pMappedCounterReset)));
 		ZeroMemory(pMappedCounterReset, sizeof(UINT));
-		ProcessedCommandBufferCounterReset->Unmap(0, nullptr);
+		UAVCounterReset->Unmap(0, nullptr);
+		UAVCounterReset->SetName(L"UAV Counter Reset");
 	}
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);
@@ -558,16 +536,6 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		VSRootConstants.InvView = XMMatrixInverse(nullptr, viewMatrix);
 		VSRootConstants.angle = angle;
 
-		for (UINT n = 0; n < MaxParticleCount; ++n)
-		{
-			ParticleBufferData[n].position = XMFLOAT3(0, n, 0);
-			ParticleBufferData[n].velocity = XMFLOAT3(0, 0, 0);
-			ParticleBufferData[n].age = 0;
-		}
-
-		UINT8* destination = ParticleBufferDataBegin + (MaxParticleCount * pWindow->GetCurrentBackBufferIndex() * sizeof(Particle));
-		memcpy(destination, &ParticleBufferData[0], MaxParticleCount * sizeof(Particle));
-
 		CSRootConstants.deltaTime = deltaTime;
 	}
 }
@@ -593,24 +561,25 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	auto rtv = pWindow->GetCurrentRenderTargetView();
 	auto dsv = DSVHeap->GetCPUDescriptorHandleForHeapStart();
 
+	D3D12_GPU_DESCRIPTOR_HANDLE descriptorHandle = DescriptorHeap->GetGPUDescriptorHandleForHeapStart();
+
 	// Compute command list
 	if (UseCompute)
 	{
 		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
-		D3D12_GPU_DESCRIPTOR_HANDLE UAV4Handle = UAV4Heap->GetGPUDescriptorHandleForHeapStart();
 
 		// Emit
 		computeCommandList->SetPipelineState(EmitPSO.Get());
 		computeCommandList->SetComputeRootSignature(EmitRS.Get());
 
-		ID3D12DescriptorHeap* ppHeaps[] = { UAV4Heap.Get() };
+		ID3D12DescriptorHeap* ppHeaps[] = { DescriptorHeap.Get() };
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(UAV4Handle, frameDescriptorOffset, UAV4DescriptorSize));
+		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, frameDescriptorOffset, DescriptorSize));
 		computeCommandList->SetComputeRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 
 		// Reset UAV counter for this frame
-		computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
+		//computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
 
 		//computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 
@@ -618,7 +587,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		//computeCommandList->SetPipelineState(SimulatePSO.Get());
 		//computeCommandList->SetComputeRootSignature(SimulateRS.Get());
 
-		TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+		//TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 	}
@@ -630,7 +599,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 
 		// Bind descriptor heaps
-		ID3D12DescriptorHeap* ppHeaps[] = { UAV4Heap.Get() };
+		ID3D12DescriptorHeap* ppHeaps[] = { DescriptorHeap.Get() };
 		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 		// Set up rasterizer state
@@ -638,10 +607,10 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
 		// Indicate that the command buffer will be used for indirect drawing
-		D3D12_RESOURCE_BARRIER barriers[2] = {
-			CD3DX12_RESOURCE_BARRIER::Transition(
+		D3D12_RESOURCE_BARRIER barriers[1] = {
+			/*CD3DX12_RESOURCE_BARRIER::Transition(
 				UseCompute ? ProcessedCommandBuffers[currentBackBufferIndex].Get() : CommandBuffer.Get(),
-				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),
+				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),*/
 			CD3DX12_RESOURCE_BARRIER::Transition(
 				backBuffer.Get(),
 				D3D12_RESOURCE_STATE_PRESENT,
@@ -657,11 +626,15 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
+		commandList->IASetIndexBuffer(&IndexBufferView);
 
+		commandList->SetGraphicsRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 4 + currentBackBufferIndex, DescriptorSize));
 		commandList->SetGraphicsRoot32BitConstants(1, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 
+		commandList->DrawIndexedInstanced(_countof(Indices), 4, 0, 0, 0);
+
 		// Draw
-		if (UseCompute)
+		/*if (UseCompute)
 		{
 			commandList->ExecuteIndirect(
 				CommandSignature.Get(),
@@ -680,13 +653,13 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 				CommandSizePerFrame * currentBackBufferIndex,
 				nullptr,
 				0);
-		}
+		}*/
 
 		// Change resources for presentation and compute
-		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-		barriers[0].Transition.StateAfter = UseCompute ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
-		barriers[1].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		barriers[1].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
+		/*barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
+		barriers[0].Transition.StateAfter = UseCompute ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;*/
+		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+		barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
 
 		commandList->ResourceBarrier(_countof(barriers), barriers);
 	}

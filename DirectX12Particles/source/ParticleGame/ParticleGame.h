@@ -31,6 +31,8 @@ private:
 	// Create a GPU buffer
 	void UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, 
 		size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
+	void UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
+		size_t bufferSize, const void* bufferData);
 
 	// Resize the depth buffer to match the window area
 	void ResizeDepthBuffer(int width, int height);
@@ -60,40 +62,23 @@ private:
 		float deltaTime;
 	};
 
-	// Data structure to match the command signature used for ExecuteIndirect.
-	struct IndirectCommand
-	{
-		D3D12_GPU_VIRTUAL_ADDRESS cbv;
-		D3D12_INDEX_BUFFER_VIEW ibv;
-		D3D12_DRAW_INDEXED_ARGUMENTS drawArguments;
-		UINT padding[1];
-	};
-
 	static const UINT BoxCount = 3;
 	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
-	static const UINT CommandSizePerFrame;                // The size of the indirect commands to draw all of the triangles in a single frame.
-	static const UINT CommandBufferCounterOffset;         // The offset of the UAV counter in the processed command buffer.
-	static const UINT ComputeThreadGroupSize = 128;       // Should match the value in compute.hlsl.
+	static const UINT ParticleIndexBufferSizePerFrame;
+	static const UINT ComputeThreadGroupSize = 128;
 
 	VSRootConstants VSRootConstants;
 	CSRootConstants CSRootConstants;
 
-	ComPtr<ID3D12CommandSignature> CommandSignature;
-
 	uint64_t FenceValues[Window::BufferCount] = {};
 
 	ComPtr<ID3D12DescriptorHeap> DSVHeap;
-	ComPtr<ID3D12DescriptorHeap> UAV4Heap;
-
-	UINT RTVDescriptorSize;
-	UINT UAV4DescriptorSize;
+	ComPtr<ID3D12DescriptorHeap> DescriptorHeap;
+	UINT DescriptorSize;
 
 	ComPtr<ID3D12Resource> VertexBuffer;
 	ComPtr<ID3D12Resource> IndexBuffer;
 	ComPtr<ID3D12Resource> DepthBuffer;
-	ComPtr<ID3D12Resource> CommandBuffer;
-	ComPtr<ID3D12Resource> ProcessedCommandBuffers[Window::BufferCount];
-	ComPtr<ID3D12Resource> ProcessedCommandBufferCounterReset;
 	D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 
@@ -117,10 +102,13 @@ private:
 
 	std::vector<Particle> ParticleBufferData;
 	UINT8* ParticleBufferDataBegin;
-	static const UINT MaxParticleCount = 1000;
+	static const UINT MaxParticleCount = 10;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 	ComPtr<ID3D12Resource> ParticleBuffer;
-	ComPtr<ID3D12Resource> DeadIndexList;
 	ComPtr<ID3D12Resource> AliveIndexList0;
 	ComPtr<ID3D12Resource> AliveIndexList1;
+	ComPtr<ID3D12Resource> DeadIndexList;
+	ComPtr<ID3D12Resource> StagedParticleBuffers;
+	ComPtr<ID3D12Resource> UAVCounterReset;
+	static const UINT ParticleBufferCounterOffset;
 };
