@@ -55,11 +55,12 @@ private:
 
 	struct CSRootConstants
 	{
+		float deltaTime;
 		float emitCount;
 		float particleLifetime;
+		UINT maxParticleCount;
 		XMFLOAT3 emitPosition;
 		XMFLOAT3 emitVelocity;
-		float deltaTime;
 	};
 
 	static const UINT BoxCount = 3;
@@ -100,7 +101,6 @@ private:
 	bool ContentLoaded;
 	bool UseCompute;
 
-	std::vector<Particle> ParticleBufferData;
 	UINT8* ParticleBufferDataBegin;
 	static const UINT MaxParticleCount = 10;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;

@@ -47,10 +47,10 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, deltaTime(0)
 {
 	CSRootConstants.emitCount = 1;
-	CSRootConstants.particleLifetime = MaxParticleCount;
+	CSRootConstants.particleLifetime = 1;
+	CSRootConstants.maxParticleCount = MaxParticleCount;
 	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
 	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
-	ParticleBufferData.resize(MaxParticleCount);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -173,9 +173,8 @@ bool ParticleGame::LoadContent()
 
 		// Create emitter compute signature
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
-			emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-			emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[1];
+			emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 			CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
 			emitRootParameters[0].InitAsDescriptorTable(_countof(emitRanges), emitRanges);
@@ -190,12 +189,12 @@ bool ParticleGame::LoadContent()
 
 		// Create simulation compute signature
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
-			simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-			simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[1];
+			simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
-			CD3DX12_ROOT_PARAMETER1 simulateRootParameters[1];
+			CD3DX12_ROOT_PARAMETER1 simulateRootParameters[2];
 			simulateRootParameters[0].InitAsDescriptorTable(_countof(simulateRanges), simulateRanges);
+			simulateRootParameters[1].InitAsConstants(sizeof(CSRootConstants) / 4, 0);
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC simulateRSDescription;
 			simulateRSDescription.Init_1_1(_countof(simulateRootParameters), simulateRootParameters);
@@ -221,7 +220,7 @@ bool ParticleGame::LoadContent()
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &pixelShader));
-		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Compute.cso").c_str(), &computeEmitShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeEmitter.cso").c_str(), &computeEmitShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
 
 		// Define rendering PSO
@@ -566,8 +565,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	// Compute command list
 	if (UseCompute)
 	{
-		UINT frameDescriptorOffset = currentBackBufferIndex * 3; // 2SRV1UAV descriptor for this frame
-
 		// Emit
 		computeCommandList->SetPipelineState(EmitPSO.Get());
 		computeCommandList->SetComputeRootSignature(EmitRS.Get());
@@ -575,11 +572,12 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		ID3D12DescriptorHeap* ppHeaps[] = { DescriptorHeap.Get() };
 		computeCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, frameDescriptorOffset, DescriptorSize));
+		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 0, DescriptorSize));
 		computeCommandList->SetComputeRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 
 		// Reset UAV counter for this frame
 		//computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
+		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
 
 		//computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 
@@ -711,6 +709,9 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 	case KeyCode::Space:
 		Application::Get().Flush();
 		UseCompute = !UseCompute;
+		char buffer[512];
+		sprintf_s(buffer, "Using Compute?: %d\n", UseCompute);
+		OutputDebugStringA(buffer);
 		break;
 	}
 }
