@@ -56,16 +56,13 @@ private:
 	struct CSRootConstants
 	{
 		float deltaTime;
-		float emitCount;
 		float particleLifetime;
+		UINT emitCount;
 		UINT maxParticleCount;
 		XMFLOAT3 emitPosition;
 		XMFLOAT3 emitVelocity;
 	};
 
-	static const UINT BoxCount = 3;
-	static const UINT BoxResourceCount = BoxCount * Window::BufferCount;
-	static const UINT ParticleIndexBufferSizePerFrame;
 	static const UINT ComputeThreadGroupSize = 128;
 
 	VSRootConstants VSRootConstants;
@@ -111,4 +108,6 @@ private:
 	ComPtr<ID3D12Resource> StagedParticleBuffers;
 	ComPtr<ID3D12Resource> UAVCounterReset;
 	static const UINT ParticleBufferCounterOffset;
+
+	UINT EmittedParticleCount;
 };

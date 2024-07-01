@@ -3,8 +3,8 @@
 cbuffer RootConstants : register(b0)
 {
     float deltaTime;
-    float emitCount;
     float particleLifetime;
+    uint emitCount;
     uint maxParticleCount;
     float3 emitPosition;
     float3 emitVelocity;

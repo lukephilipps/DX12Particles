@@ -579,11 +579,14 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		//computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
 		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
 
-		//computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
+		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 
-		//// Simulate
-		//computeCommandList->SetPipelineState(SimulatePSO.Get());
-		//computeCommandList->SetComputeRootSignature(SimulateRS.Get());
+		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
+		computeCommandList->ResourceBarrier(1, &barrier);
+
+		// Simulate
+		computeCommandList->SetPipelineState(SimulatePSO.Get());
+		computeCommandList->SetComputeRootSignature(SimulateRS.Get());
 
 		//TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
