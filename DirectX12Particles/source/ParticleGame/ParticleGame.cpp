@@ -575,8 +575,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 0, DescriptorSize));
 		computeCommandList->SetComputeRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 
-		// Reset UAV counter for this frame
-		//computeCommandList->CopyBufferRegion(ProcessedCommandBuffers[currentBackBufferIndex].Get(), CommandBufferCounterOffset, ProcessedCommandBufferCounterReset.Get(), 0, sizeof(UINT));
 		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
 
 		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
@@ -587,8 +585,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		// Simulate
 		computeCommandList->SetPipelineState(SimulatePSO.Get());
 		computeCommandList->SetComputeRootSignature(SimulateRS.Get());
-
-		//TransitionResource(computeCommandList, ProcessedCommandBuffers[currentBackBufferIndex], D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
 
 		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 	}

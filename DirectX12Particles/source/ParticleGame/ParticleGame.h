@@ -108,6 +108,4 @@ private:
 	ComPtr<ID3D12Resource> StagedParticleBuffers;
 	ComPtr<ID3D12Resource> UAVCounterReset;
 	static const UINT ParticleBufferCounterOffset;
-
-	UINT EmittedParticleCount;
 };
