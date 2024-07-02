@@ -69,8 +69,7 @@
       <AdditionalDependencies>d3d12.lib;D3Dcompiler.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <HeapReserveSize>
       </HeapReserveSize>
-      <StackReserveSize>
-      </StackReserveSize>
+      <StackReserveSize>4000000</StackReserveSize>
     </Link>
     <FxCompile>
       <ShaderModel>6.2</ShaderModel>

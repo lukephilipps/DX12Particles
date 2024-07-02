@@ -6,31 +6,50 @@ cbuffer RootConstants : register(b0)
     float particleLifetime;
     uint emitCount;
     uint maxParticleCount;
-    float3 emitPosition;
-    float3 emitVelocity;
+    float4 emitPosition;
+    float4 emitVelocity;
 };
 
 struct Particle
 {
-    float3 position;
-    float3 velocity;
-    float age;
+    float4 position;
+    float4 velocity;
+    float lifeTimeLeft;
 
-    float padding[57];
+    float padding[55];
 };
 
 RWStructuredBuffer<Particle> Particles : register(u0);
-RWBuffer<uint> AliveIndices0 : register(u1);
-RWBuffer<uint> AliveIndices1 : register(u2);
-RWBuffer<uint> DeadIndices : register(u3);
+ConsumeStructuredBuffer<uint> AliveIndices0 : register(u1);
+AppendStructuredBuffer<uint> AliveIndices1 : register(u2);
+AppendStructuredBuffer<uint> DeadIndices : register(u3);
+Buffer<uint> DeadIndicesCounter : register(t0);
 
 [numthreads(threadGroupSize, 1, 1)]
 void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
 {
     uint index = (groupId.x * threadGroupSize) + groupIndex;
+    uint aliveParticleCount = maxParticleCount - DeadIndicesCounter[0];
     
-    if (index < maxParticleCount)
+    GroupMemoryBarrierWithGroupSync();
+    
+    if (index < aliveParticleCount)
     {
-        Particles[index].position.y -= deltaTime * 1;
+        uint particleIndex = AliveIndices0.Consume();
+        Particle particle = Particles[particleIndex];
+
+        particle.position += particle.velocity * deltaTime;
+        particle.lifeTimeLeft -= deltaTime;
+        
+        if (particle.lifeTimeLeft <= 0)
+        {
+            DeadIndices.Append(particleIndex);
+        }
+        else
+        {
+            AliveIndices1.Append(particleIndex);
+        }
+        
+        Particles[particleIndex] = particle;
     }
 }

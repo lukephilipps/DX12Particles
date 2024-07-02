@@ -1,8 +1,10 @@
 struct ParticleData
 {
-    float3 position;
-    float3 velocity;
-    float age;
+    float4 position;
+    float4 velocity;
+    float lifeTimeLeft;
+    
+    float buffer[55];
 };
 
 StructuredBuffer<ParticleData> particles : register(t0);
@@ -46,10 +48,13 @@ float3x3 AngleAxis3x3(float angle, float3 axis)
 v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
 {
     v2f o;
+    ParticleData data = particles[instanceID];
     
-    float4 pos = float4(mul(AngleAxis3x3(angle, normalize(float3(0, 1, 1))), i.Position), 1);
-    o.Position = mul(MVP, pos + float4(instanceID, particles[0].position.y, 0, 0));
+    float4 pos = float4(mul(AngleAxis3x3(angle, normalize(float3(0, 1, 1))), i.Position), 1) + data.position;
+    o.Position = mul(MVP, pos);
     o.Color = float4(i.Color, 1.0f);
+    
+    if (data.lifeTimeLeft <= 0) o.Position = float4(0, 0, 0, 0);
     
     return o;
 }

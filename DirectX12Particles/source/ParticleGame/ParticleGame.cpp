@@ -46,11 +46,11 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, UseCompute(false)
 	, deltaTime(0)
 {
-	CSRootConstants.emitCount = 1;
 	CSRootConstants.particleLifetime = 1;
+	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitPosition = XMFLOAT3(0, 0, 0);
-	CSRootConstants.emitVelocity = XMFLOAT3(0, 1, 0);
+	CSRootConstants.emitPosition = XMFLOAT4(0, 0, 0, 0);
+	CSRootConstants.emitVelocity = XMFLOAT4(0, 1, 0, 0);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -140,7 +140,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(4 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(5 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	}
 
 	// Create root signatures
@@ -173,8 +173,9 @@ bool ParticleGame::LoadContent()
 
 		// Create emitter compute signature
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[1];
+			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
 			emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
 			CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
 			emitRootParameters[0].InitAsDescriptorTable(_countof(emitRanges), emitRanges);
@@ -189,8 +190,9 @@ bool ParticleGame::LoadContent()
 
 		// Create simulation compute signature
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[1];
+			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
 			simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
 			CD3DX12_ROOT_PARAMETER1 simulateRootParameters[2];
 			simulateRootParameters[0].InitAsDescriptorTable(_countof(simulateRanges), simulateRanges);
@@ -329,18 +331,21 @@ bool ParticleGame::LoadContent()
 	ComPtr<ID3D12Resource> intermediateAlive0Buffer;
 	ComPtr<ID3D12Resource> intermediateAlive1Buffer;
 	ComPtr<ID3D12Resource> intermediateDeadBuffer;
+	ComPtr<ID3D12Resource> intermediateDeadBufferCounter;
 	ComPtr<ID3D12Resource> intermediateStagedParticleBuffer;
 
 	// Define descriptor heap
 	{
 		Particle particleData[MaxParticleCount];
 		Particle stagedParticleData[MaxParticleCount * Window::BufferCount];
-		UINT particleIndices[MaxParticleCount];
+		UINT particleAliveIndices[MaxParticleCount + 1];
+		UINT particleDeadIndices[MaxParticleCount];
+		UINT deadCounter[1] = { MaxParticleCount };
 
 		for (UINT n = 0; n < MaxParticleCount; n++)
 		{
 			particleData[n] = {};
-			particleIndices[n] = n;
+			particleDeadIndices[n] = n;
 		}
 
 		UINT index = 0;
@@ -352,6 +357,8 @@ bool ParticleGame::LoadContent()
 				++index;
 			}
 		}
+
+		particleAliveIndices[MaxParticleCount] = 0;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSize);
 
@@ -366,51 +373,50 @@ bool ParticleGame::LoadContent()
 		uavDesc.Buffer.CounterOffsetInBytes = 0;
 		uavDesc.Buffer.Flags = D3D12_BUFFER_UAV_FLAG_NONE;
 		device->CreateUnorderedAccessView(ParticleBuffer.Get(), nullptr, &uavDesc, descriptorHandle);
-		ParticleBuffer->SetName(L"Particle Buffer");
-		intermediateParticleBuffer->SetName(L"Particle Buffer");
 
 		// Entry 1, Alive particle index buffer 0
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList0, &intermediateAlive0Buffer, ParticleBufferCounterOffset, particleIndices);
+		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList0, &intermediateAlive0Buffer, ParticleBufferCounterOffset, particleAliveIndices);
 		uavDesc.Buffer.StructureByteStride = sizeof(UINT);
 		uavDesc.Buffer.CounterOffsetInBytes = ParticleBufferCounterOffset;
 		device->CreateUnorderedAccessView(AliveIndexList0.Get(), AliveIndexList0.Get(), &uavDesc, descriptorHandle);
-		AliveIndexList0->SetName(L"Alive0 Index List");
-		intermediateAlive0Buffer->SetName(L"Alive0 Index List");
 
 		// Entry 2, Alive particle index buffer 1
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList1, &intermediateAlive1Buffer, ParticleBufferCounterOffset, particleIndices);
+		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList1, &intermediateAlive1Buffer, ParticleBufferCounterOffset, particleAliveIndices);
 		device->CreateUnorderedAccessView(AliveIndexList1.Get(), AliveIndexList1.Get(), &uavDesc, descriptorHandle);
-		AliveIndexList1->SetName(L"Alive1 Index List");
-		intermediateAlive1Buffer->SetName(L"Alive1 Index List");
+
+		// Create counter resource for DeadIndexList as we want to place the counter on the heap to read from compute shaders as an SRV
+		UpdateBufferResource(commandList.Get(), &DeadIndexListCounter, &intermediateDeadBufferCounter, 1, sizeof(UINT), deadCounter, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
 
 		// Entry 3, Dead particle index buffer
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResourceWithCounter(commandList.Get(), &DeadIndexList, &intermediateDeadBuffer, ParticleBufferCounterOffset, particleIndices);
-		device->CreateUnorderedAccessView(DeadIndexList.Get(), DeadIndexList.Get(), &uavDesc, descriptorHandle);
-		//TransitionResource(commandList, DeadIndexList, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
-		DeadIndexList->SetName(L"Dead Index List");
-		intermediateDeadBuffer->SetName(L"Dead Index List");
-
-		// Entries 4-6, Staged particle data for rendering
+		uavDesc.Buffer.CounterOffsetInBytes = 0;
+		UpdateBufferResource(commandList.Get(), &DeadIndexList, &intermediateDeadBuffer, MaxParticleCount, sizeof(UINT), particleDeadIndices, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+		device->CreateUnorderedAccessView(DeadIndexList.Get(), DeadIndexListCounter.Get(), &uavDesc, descriptorHandle);
+		
+		// Entry 4, Dead particle index buffer counter
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResource(commandList.Get(), &StagedParticleBuffers, &intermediateStagedParticleBuffer, _countof(stagedParticleData), sizeof(Particle), stagedParticleData);
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Buffer.NumElements = 1;
+		srvDesc.Buffer.StructureByteStride = sizeof(UINT);
+		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		device->CreateShaderResourceView(DeadIndexListCounter.Get(), &srvDesc, descriptorHandle);
+
+		// Entries 5-7, Staged particle data for rendering
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResource(commandList.Get(), &StagedParticleBuffers, &intermediateStagedParticleBuffer, _countof(stagedParticleData), sizeof(Particle), stagedParticleData);
 		srvDesc.Buffer.NumElements = MaxParticleCount;
 		srvDesc.Buffer.StructureByteStride = sizeof(Particle);
-		srvDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
 			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
 			device->CreateShaderResourceView(StagedParticleBuffers.Get(), &srvDesc, descriptorHandle);
 			descriptorHandle.Offset(1, DescriptorSize);
 		}
-		StagedParticleBuffers->SetName(L"Staged Particle Buffers");
-		intermediateStagedParticleBuffer->SetName(L"Staged Particle Buffers");
 
 		// UAV counter reset (really only for AliveBuffer1)
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
@@ -575,9 +581,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		computeCommandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 0, DescriptorSize));
 		computeCommandList->SetComputeRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 
-		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
-
-		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
+		computeCommandList->Dispatch(static_cast<UINT>(ceil((float)CSRootConstants.emitCount / float(ComputeThreadGroupSize))), 1, 1);
 
 		CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::UAV(nullptr);
 		computeCommandList->ResourceBarrier(1, &barrier);
@@ -587,6 +591,20 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		computeCommandList->SetComputeRootSignature(SimulateRS.Get());
 
 		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
+
+		// POSSIBLY DELETE THIS
+		computeCommandList->ResourceBarrier(1, &barrier);
+
+		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
+		computeCommandList->CopyResource(AliveIndexList0.Get(), AliveIndexList1.Get());
+		//computeCommandList->CopyBufferRegion(AliveIndexList0.Get(), 0, AliveIndexList1.Get(), 0, sizeof(UINT) * MaxParticleCount + sizeof(UINT));
+		
+		TransitionResource(computeCommandList, AliveIndexList1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
+
+		// Reset counter for placeholder AliveIndexList
+		computeCommandList->CopyBufferRegion(AliveIndexList1.Get(), ParticleBufferCounterOffset, UAVCounterReset.Get(), 0, sizeof(UINT));
+
+		TransitionResource(computeCommandList, AliveIndexList1, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	}
 
 	// Rendering command list
@@ -603,17 +621,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->RSSetViewports(1, &Viewport);
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
-		// Indicate that the command buffer will be used for indirect drawing
-		D3D12_RESOURCE_BARRIER barriers[1] = {
-			/*CD3DX12_RESOURCE_BARRIER::Transition(
-				UseCompute ? ProcessedCommandBuffers[currentBackBufferIndex].Get() : CommandBuffer.Get(),
-				UseCompute ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT),*/
-			CD3DX12_RESOURCE_BARRIER::Transition(
-				backBuffer.Get(),
-				D3D12_RESOURCE_STATE_PRESENT,
-				D3D12_RESOURCE_STATE_RENDER_TARGET)
-		};
-		commandList->ResourceBarrier(_countof(barriers), barriers);
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
@@ -625,40 +633,12 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
 		commandList->IASetIndexBuffer(&IndexBufferView);
 
-		commandList->SetGraphicsRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 4 + currentBackBufferIndex, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
 		commandList->SetGraphicsRoot32BitConstants(1, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 
-		commandList->DrawIndexedInstanced(_countof(Indices), 4, 0, 0, 0);
+		commandList->DrawIndexedInstanced(_countof(Indices), MaxParticleCount, 0, 0, 0);
 
-		// Draw
-		/*if (UseCompute)
-		{
-			commandList->ExecuteIndirect(
-				CommandSignature.Get(),
-				MaxParticleCount,
-				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
-				0,
-				ProcessedCommandBuffers[currentBackBufferIndex].Get(),
-				CommandBufferCounterOffset);
-		}
-		else
-		{
-			commandList->ExecuteIndirect(
-				CommandSignature.Get(),
-				MaxParticleCount,
-				CommandBuffer.Get(),
-				CommandSizePerFrame * currentBackBufferIndex,
-				nullptr,
-				0);
-		}*/
-
-		// Change resources for presentation and compute
-		/*barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_INDIRECT_ARGUMENT;
-		barriers[0].Transition.StateAfter = UseCompute ? D3D12_RESOURCE_STATE_COPY_DEST : D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;*/
-		barriers[0].Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
-		barriers[0].Transition.StateAfter = D3D12_RESOURCE_STATE_PRESENT;
-
-		commandList->ResourceBarrier(_countof(barriers), barriers);
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
 	}
 
 	// Execute work

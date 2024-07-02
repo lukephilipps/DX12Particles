@@ -39,11 +39,11 @@ private:
 
 	struct Particle
 	{
-		XMFLOAT3 position;
-		XMFLOAT3 velocity;
-		float age;
+		XMFLOAT4 position;
+		XMFLOAT4 velocity;
+		XMFLOAT4 lifeTimeLeft;
 
-		float padding[57];
+		float padding[52];
 	};
 
 	struct VSRootConstants
@@ -59,8 +59,9 @@ private:
 		float particleLifetime;
 		UINT emitCount;
 		UINT maxParticleCount;
-		XMFLOAT3 emitPosition;
-		XMFLOAT3 emitVelocity;
+		XMFLOAT4 emitPosition;
+		XMFLOAT4 emitVelocity;
+		float buffer[4];
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;
@@ -98,13 +99,13 @@ private:
 	bool ContentLoaded;
 	bool UseCompute;
 
-	UINT8* ParticleBufferDataBegin;
-	static const UINT MaxParticleCount = 10;
+	static const UINT MaxParticleCount = 1000;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 	ComPtr<ID3D12Resource> ParticleBuffer;
 	ComPtr<ID3D12Resource> AliveIndexList0;
 	ComPtr<ID3D12Resource> AliveIndexList1;
 	ComPtr<ID3D12Resource> DeadIndexList;
+	ComPtr<ID3D12Resource> DeadIndexListCounter;
 	ComPtr<ID3D12Resource> StagedParticleBuffers;
 	ComPtr<ID3D12Resource> UAVCounterReset;
 	static const UINT ParticleBufferCounterOffset;
