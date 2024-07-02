@@ -20,6 +20,7 @@ protected:
 	virtual void OnUpdate(UpdateEventArgs& e) override;
 	virtual void OnRender(RenderEventArgs& e) override;
 	virtual void OnKeyPressed(KeyEventArgs& e) override;
+	virtual void OnKeyReleased(KeyEventArgs& e) override;
 	virtual void OnMouseWheel(MouseWheelEventArgs& e) override;
 	virtual void OnResize(ResizeEventArgs& e) override;
 
@@ -110,4 +111,15 @@ private:
 	ComPtr<ID3D12Resource> StagedParticleBuffers;
 	ComPtr<ID3D12Resource> UAVCounterReset;
 	static const UINT ParticleBufferCounterOffset;
+
+	// Camera vars
+	bool PressingW;
+	bool PressingA;
+	bool PressingS;
+	bool PressingD;
+	bool PressingQ;
+	bool PressingE;
+
+	XMFLOAT4 CameraPosition;
+	const float CameraMoveSpeed = 8;
 };

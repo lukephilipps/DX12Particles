@@ -44,6 +44,12 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, drawOffset(0)
 	, UseCompute(false)
 	, deltaTime(0)
+	, PressingW(false)
+	, PressingA(false)
+	, PressingS(false)
+	, PressingD(false)
+	, PressingQ(false)
+	, PressingE(false)
 {
 	CSRootConstants.particleLifetime = 1;
 	CSRootConstants.emitCount = 3;
@@ -51,6 +57,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.emitPosition = XMFLOAT4(0, 0, 0, 0);
 	CSRootConstants.emitVelocity = XMFLOAT4(0, 5, 0, 0);
 	CSRootConstants.emitAcceleration = XMFLOAT4(0, -9.8, 0, 0);
+
+	CameraPosition = XMFLOAT4(0, 0, -10, 1);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -528,17 +536,21 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 	
 	// Update constant info
 	{
-		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
+		CameraPosition.x += ((float)PressingD - (float)PressingA) * deltaTime * CameraMoveSpeed;
+		CameraPosition.z += ((float)PressingW - (float)PressingS) * deltaTime * CameraMoveSpeed;
+		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
+
+		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
 		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
-		XMMATRIX viewMatrix = XMMatrixLookAtLH(eyePosition, focusPoint, upDirection);
+		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
 		float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
-		XMMATRIX projectionMatrix = XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
+		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
 
 		float angle = XMConvertToRadians(static_cast<float>(e.TotalTime * 90));
-		VSRootConstants.MVP = XMMatrixMultiply(viewMatrix, projectionMatrix);
-		VSRootConstants.InvView = XMMatrixInverse(nullptr, viewMatrix);
+		VSRootConstants.MVP = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
+		VSRootConstants.InvView = DirectX::XMMatrixInverse(nullptr, viewMatrix);
 		VSRootConstants.angle = angle;
 
 		CSRootConstants.deltaTime = deltaTime;
@@ -681,6 +693,51 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		char buffer[512];
 		sprintf_s(buffer, "Using Compute?: %d\n", UseCompute);
 		OutputDebugStringA(buffer);
+		break;
+	case KeyCode::W:
+		PressingW = true;
+		break;
+	case KeyCode::A:
+		PressingA = true;
+		break;
+	case KeyCode::S:
+		PressingS = true;
+		break;
+	case KeyCode::D:
+		PressingD = true;
+		break;
+	case KeyCode::Q:
+		PressingQ = true;
+		break;
+	case KeyCode::E:
+		PressingE = true;
+		break;
+	}
+}
+
+void ParticleGame::OnKeyReleased(KeyEventArgs& e)
+{
+	super::OnKeyReleased(e);
+
+	switch (e.Key)
+	{
+	case KeyCode::W:
+		PressingW = false;
+		break;
+	case KeyCode::A:
+		PressingA = false;
+		break;
+	case KeyCode::S:
+		PressingS = false;
+		break;
+	case KeyCode::D:
+		PressingD = false;
+		break;
+	case KeyCode::Q:
+		PressingQ = false;
+		break;
+	case KeyCode::E:
+		PressingE = false;
 		break;
 	}
 }
