@@ -2,9 +2,10 @@ struct ParticleData
 {
     float4 position;
     float4 velocity;
+    float4 acceleration;
     float lifeTimeLeft;
     
-    float buffer[55];
+    float buffer[51];
 };
 
 StructuredBuffer<ParticleData> particles : register(t0);

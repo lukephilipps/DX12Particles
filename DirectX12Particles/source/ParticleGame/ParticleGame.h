@@ -41,9 +41,10 @@ private:
 	{
 		XMFLOAT4 position;
 		XMFLOAT4 velocity;
-		XMFLOAT4 lifeTimeLeft;
+		XMFLOAT4 acceleration;
+		float lifeTimeLeft;
 
-		float padding[52];
+		float padding[51];
 	};
 
 	struct VSRootConstants
@@ -61,7 +62,7 @@ private:
 		UINT maxParticleCount;
 		XMFLOAT4 emitPosition;
 		XMFLOAT4 emitVelocity;
-		float buffer[4];
+		XMFLOAT4 emitAcceleration;
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;

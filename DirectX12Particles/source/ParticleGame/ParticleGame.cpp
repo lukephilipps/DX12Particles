@@ -14,17 +14,16 @@ struct VertexPosColor
 };
 
 static VertexPosColor Vertices[8] = {
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT3(1.0f, 0.0f, 1.0f) }
+	{ XMFLOAT3(-0.15f, -0.15f, -0.15f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
+	{ XMFLOAT3(-0.15f,  0.15f, -0.15f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 0.15f,  0.15f, -0.15f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
+	{ XMFLOAT3( 0.15f, -0.15f, -0.15f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+	{ XMFLOAT3(-0.15f, -0.15f,  0.15f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+	{ XMFLOAT3(-0.15f,  0.15f,  0.15f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
+	{ XMFLOAT3( 0.15f,  0.15f,  0.15f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+	{ XMFLOAT3( 0.15f, -0.15f,  0.15f), XMFLOAT3(1.0f, 0.0f, 1.0f) }
 };
 
-// Triangles
 static WORD Indices[36] = {
 	0, 1, 2, 0, 2, 3,
 	4, 6, 5, 4, 7, 6,
@@ -50,7 +49,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
 	CSRootConstants.emitPosition = XMFLOAT4(0, 0, 0, 0);
-	CSRootConstants.emitVelocity = XMFLOAT4(0, 1, 0, 0);
+	CSRootConstants.emitVelocity = XMFLOAT4(0, 5, 0, 0);
+	CSRootConstants.emitAcceleration = XMFLOAT4(0, -9.8, 0, 0);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -526,7 +526,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		totalTime = 0.0;
 	}
 	
-	// Update constant info for next frame's buffer
+	// Update constant info
 	{
 		const XMVECTOR eyePosition = XMVectorSet(0, 0, -10, 1);
 		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
@@ -592,32 +592,22 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		computeCommandList->Dispatch(static_cast<UINT>(ceil(MaxParticleCount / float(ComputeThreadGroupSize))), 1, 1);
 
-		// POSSIBLY DELETE THIS
-		computeCommandList->ResourceBarrier(1, &barrier);
-
 		computeCommandList->CopyBufferRegion(StagedParticleBuffers.Get(), currentBackBufferIndex * sizeof(Particle) * MaxParticleCount, ParticleBuffer.Get(), 0, sizeof(Particle) * MaxParticleCount);
 		computeCommandList->CopyResource(AliveIndexList0.Get(), AliveIndexList1.Get());
-		//computeCommandList->CopyBufferRegion(AliveIndexList0.Get(), 0, AliveIndexList1.Get(), 0, sizeof(UINT) * MaxParticleCount + sizeof(UINT));
 		
 		TransitionResource(computeCommandList, AliveIndexList1, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_COPY_DEST);
-
-		// Reset counter for placeholder AliveIndexList
 		computeCommandList->CopyBufferRegion(AliveIndexList1.Get(), ParticleBufferCounterOffset, UAVCounterReset.Get(), 0, sizeof(UINT));
-
 		TransitionResource(computeCommandList, AliveIndexList1, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_COPY_SOURCE);
 	}
 
 	// Rendering command list
 	{
-		// Set up PSO and root signature
 		commandList->SetPipelineState(RenderPSO.Get());
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 
-		// Bind descriptor heaps
 		ID3D12DescriptorHeap* ppHeaps[] = { DescriptorHeap.Get() };
 		commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
-		// Set up rasterizer state
 		commandList->RSSetViewports(1, &Viewport);
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
@@ -625,7 +615,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
 
-		const FLOAT clearColor[] = { 0.3f, 0.2f, 0.1f, 1.0f };
+		const FLOAT clearColor[] = { 0.8f, 0.2f, 0.1f, 1.0f };
 		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 

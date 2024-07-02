@@ -14,9 +14,10 @@ struct Particle
 {
     float4 position;
     float4 velocity;
+    float4 acceleration;
     float lifeTimeLeft;
 
-    float padding[55];
+    float padding[51];
 };
 
 RWStructuredBuffer<Particle> Particles : register(u0);
@@ -38,6 +39,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         uint particleIndex = AliveIndices0.Consume();
         Particle particle = Particles[particleIndex];
 
+        particle.velocity += particle.acceleration * deltaTime;
         particle.position += particle.velocity * deltaTime;
         particle.lifeTimeLeft -= deltaTime;
         
