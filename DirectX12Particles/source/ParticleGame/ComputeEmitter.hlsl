@@ -6,9 +6,12 @@ cbuffer RootConstants : register(b0)
     float particleLifetime;
     uint emitCount;
     uint maxParticleCount;
-    float4 emitPosition;
-    float4 emitVelocity;
-    float4 emitAcceleration;
+    float4 emitAABBMin;
+    float4 emitAABBMax;
+    float4 emitVelocityMin;
+    float4 emitVelocityMax;
+    float4 emitAccelerationMin;
+    float4 emitAccelerationMax;
 };
 
 struct Particle
@@ -47,17 +50,21 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
     {
         uint particleIndex = DeadIndices.Consume();
         
-        Particle newParticle;
-        newParticle.position = emitPosition;
-        newParticle.velocity = emitVelocity;
-        newParticle.acceleration = emitAcceleration;
-        newParticle.lifeTimeLeft = particleLifetime;
-        
         float randomValue0 = random(float2(index, particleIndex));
-        float randomValue1 = random(float2(particleIndex + realEmitCount, index));
+        float randomValue1 = random(float2(particleIndex * 4.5, index));
+        float randomValue2 = random(float2(particleIndex + realEmitCount, deltaTime));
         
-        newParticle.velocity.x += lerp(-3, 3, randomValue0);
-        newParticle.velocity.z += lerp(-3, 3, randomValue1);
+        Particle newParticle;
+        
+        newParticle.position = lerp(emitAABBMin, emitAABBMax, float4(randomValue0, randomValue1, randomValue2, 0));
+        
+        randomValue0 = random(float2(deltaTime, randomValue2));
+        randomValue1 = random(float2(randomValue0, randomValue1));
+        randomValue2 = random(float2(index * 15, particleIndex));
+        
+        newParticle.velocity = lerp(emitVelocityMin, emitVelocityMax, float4(randomValue1, randomValue2, randomValue0, 0));
+        newParticle.acceleration = lerp(emitAccelerationMin, emitAccelerationMax, float4(randomValue2, randomValue0, randomValue1, 0));
+        newParticle.lifeTimeLeft = particleLifetime;
         
         Particles[particleIndex] = newParticle;
         AliveIndices0.Append(particleIndex);

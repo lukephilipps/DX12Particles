@@ -61,9 +61,12 @@ private:
 		float particleLifetime;
 		UINT emitCount;
 		UINT maxParticleCount;
-		XMFLOAT4 emitPosition;
-		XMFLOAT4 emitVelocity;
-		XMFLOAT4 emitAcceleration;
+		XMFLOAT4 emitAABBMin;
+		XMFLOAT4 emitAABBMax;
+		XMFLOAT4 emitVelocityMin;
+		XMFLOAT4 emitVelocityMax;
+		XMFLOAT4 emitAccelerationMin;
+		XMFLOAT4 emitAccelerationMax;
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;

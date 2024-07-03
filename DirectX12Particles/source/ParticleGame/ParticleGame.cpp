@@ -51,12 +51,15 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 1;
+	CSRootConstants.particleLifetime = 5;
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitPosition = XMFLOAT4(0, 0, 0, 0);
-	CSRootConstants.emitVelocity = XMFLOAT4(0, 5, 0, 0);
-	CSRootConstants.emitAcceleration = XMFLOAT4(0, -9.8, 0, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4(10, 10, 20, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, -1, -1, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 1, 1, 0);
+	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
+	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);
 
 	CameraPosition = XMFLOAT4(0, 0, -10, 1);
 }
@@ -317,8 +320,6 @@ bool ParticleGame::LoadContent()
 	{
 		UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
 		TransitionResource(commandList, VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		VertexBuffer->SetName(L"VertexBuffer");
-		intermediateVertexBuffer->SetName(L"IntVertexBuffer");
 
 		VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
 		VertexBufferView.SizeInBytes = sizeof(Vertices);
@@ -326,8 +327,6 @@ bool ParticleGame::LoadContent()
 
 		UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);
 		TransitionResource(commandList, IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		IndexBuffer->SetName(L"IndexBuffer");
-		intermediateIndexBuffer->SetName(L"IndexBuffer");
 
 		IndexBufferView.BufferLocation = IndexBuffer->GetGPUVirtualAddress();
 		IndexBufferView.Format = DXGI_FORMAT_R16_UINT;
@@ -426,7 +425,7 @@ bool ParticleGame::LoadContent()
 			descriptorHandle.Offset(1, DescriptorSize);
 		}
 
-		// UAV counter reset (really only for AliveBuffer1)
+		// UAV counter reset (For AliveBuffer1)
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
 		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 		ThrowIfFailed(device->CreateCommittedResource(
@@ -442,7 +441,6 @@ bool ParticleGame::LoadContent()
 		ThrowIfFailed(UAVCounterReset->Map(0, &readRange, reinterpret_cast<void**>(&pMappedCounterReset)));
 		ZeroMemory(pMappedCounterReset, sizeof(UINT));
 		UAVCounterReset->Unmap(0, nullptr);
-		UAVCounterReset->SetName(L"UAV Counter Reset");
 	}
 
 	auto fenceValue = commandQueue->ExecuteCommandList(commandList);

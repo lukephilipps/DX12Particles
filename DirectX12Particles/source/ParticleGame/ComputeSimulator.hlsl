@@ -6,8 +6,12 @@ cbuffer RootConstants : register(b0)
     float particleLifetime;
     uint emitCount;
     uint maxParticleCount;
-    float4 emitPosition;
-    float4 emitVelocity;
+    float4 emitAABBMin;
+    float4 emitAABBMax;
+    float4 emitVelocityMin;
+    float4 emitVelocityMax;
+    float4 emitAccelerationMin;
+    float4 emitAccelerationMax;
 };
 
 struct Particle
