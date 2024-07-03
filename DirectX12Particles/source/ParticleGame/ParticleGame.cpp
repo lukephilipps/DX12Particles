@@ -603,8 +603,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
 
 		float angle = XMConvertToRadians(static_cast<float>(e.TotalTime * 90));
-		VSRootConstants.MVP = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
-		VSRootConstants.CamPos = CameraPosition;
+		VSRootConstants.V = viewMatrix;
+		VSRootConstants.P = projectionMatrix;
 		VSRootConstants.angle = angle;
 
 		CSRootConstants.deltaTime = deltaTime;

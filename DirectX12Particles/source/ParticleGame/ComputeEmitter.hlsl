@@ -57,6 +57,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         Particle newParticle;
         
         newParticle.position = lerp(emitAABBMin, emitAABBMax, float4(randomValue0, randomValue1, randomValue2, 0));
+        newParticle.position.w = 1;
         
         randomValue0 = random(float2(deltaTime, randomValue2));
         randomValue1 = random(float2(randomValue0, randomValue1));

@@ -12,8 +12,8 @@ StructuredBuffer<ParticleData> particles : register(t0);
 
 cbuffer Matrices : register(b1)
 {
-    matrix MVP;
-    float4 CamPos;
+    matrix V;
+    matrix P;
     float angle;
 };
 
@@ -51,7 +51,7 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     v2f o;
     ParticleData data = particles[instanceID];
     
-    o.Position = mul(MVP, float4(i.Position, 1) + data.position);
+    o.Position = mul(P, mul(V, data.position) + float4(i.Position.x, i.Position.y, 0, 0));
     o.UV = i.UV;
     
     if (data.lifeTimeLeft <= 0) o.Position = float4(0, 0, 0, 0);

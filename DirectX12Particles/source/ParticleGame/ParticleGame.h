@@ -51,8 +51,8 @@ private:
 
 	struct VSRootConstants
 	{
-		XMMATRIX MVP;
-		XMFLOAT4 CamPos;
+		XMMATRIX V;
+		XMMATRIX P;
 		float angle;
 	};
 
