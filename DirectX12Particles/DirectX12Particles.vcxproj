@@ -106,6 +106,7 @@
     <ClInclude Include="source\Framework\Application.h" />
     <ClInclude Include="source\Framework\CommandQueue.h" />
     <ClInclude Include="source\Framework\d3dx12.h" />
+    <ClInclude Include="source\Framework\DDSTextureLoader12.h" />
     <ClInclude Include="source\Framework\Events.h" />
     <ClInclude Include="source\Framework\Game.h" />
     <ClInclude Include="source\Framework\Helpers.h" />
@@ -125,6 +126,7 @@
     <ClCompile Include="source\CubeRenderer\CubeRenderer.cpp" />
     <ClCompile Include="source\Framework\Application.cpp" />
     <ClCompile Include="source\Framework\CommandQueue.cpp" />
+    <ClCompile Include="source\Framework\DDSTextureLoader12.cpp" />
     <ClCompile Include="source\Framework\Game.cpp" />
     <ClCompile Include="source\Framework\HighResolutionClock.cpp" />
     <ClCompile Include="source\Framework\pch.cpp" />

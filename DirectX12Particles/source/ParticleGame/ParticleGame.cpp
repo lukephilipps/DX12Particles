@@ -10,27 +10,27 @@ using namespace DirectX;
 struct VertexPosColor
 {
 	XMFLOAT3 Position;
-	XMFLOAT3 Color;
+	XMFLOAT2 TexCoord;
 };
 
-static VertexPosColor Vertices[8] = {
-	{ XMFLOAT3(-0.15f, -0.15f, -0.15f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-0.15f,  0.15f, -0.15f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 0.15f,  0.15f, -0.15f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
-	{ XMFLOAT3( 0.15f, -0.15f, -0.15f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-	{ XMFLOAT3(-0.15f, -0.15f,  0.15f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-	{ XMFLOAT3(-0.15f,  0.15f,  0.15f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 0.15f,  0.15f,  0.15f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-	{ XMFLOAT3( 0.15f, -0.15f,  0.15f), XMFLOAT3(1.0f, 0.0f, 1.0f) }
+static VertexPosColor Vertices[4] = {
+	{ XMFLOAT3(-0.2f, -0.2f, -0.2f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-0.2f,  0.2f, -0.2f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 0.2f,  0.2f, -0.2f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 0.2f, -0.2f, -0.2f), XMFLOAT2(1.0f, 0.0f) }
+	// { XMFLOAT3(-0.15f, -0.15f,  0.15f), XMFLOAT2(0.0f, 0.0f) },
+	// { XMFLOAT3(-0.15f,  0.15f,  0.15f), XMFLOAT2(0.0f, 1.0f) },
+	// { XMFLOAT3(0.15f,  0.15f,  0.15f), XMFLOAT2(1.0f, 1.0f) },
+	// { XMFLOAT3(0.15f, -0.15f,  0.15f), XMFLOAT2(1.0f, 0.0f) }
 };
 
-static WORD Indices[36] = {
-	0, 1, 2, 0, 2, 3,
-	4, 6, 5, 4, 7, 6,
-	4, 5, 1, 4, 1, 0,
-	3, 2, 6, 3, 6, 7,
-	1, 5, 6, 1, 6, 2,
-	4, 0, 3, 4, 3, 7
+static WORD Indices[6] = {
+	0, 1, 2, 0, 2, 3
+	// 4, 6, 5, 4, 7, 6,
+	// 4, 5, 1, 4, 1, 0,
+	// 3, 2, 6, 3, 6, 7,
+	// 1, 5, 6, 1, 6, 2,
+	// 4, 0, 3, 4, 3, 7
 };
 
 const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
@@ -51,15 +51,22 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 5;
+	CSRootConstants.particleLifetime = 3;
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-1, 0, 0, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4(1, 1, 2, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, 6.8f, -1, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 10, 1, 0);
+	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, -9.8f, 0, 0);
+	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, -9.8f, 0, 0);
+
+	/*CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
 	CSRootConstants.emitAABBMax = XMFLOAT4(10, 10, 20, 0);
 	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, -1, -1, 0);
 	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 1, 1, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
-	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);
+	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);*/
 
 	CameraPosition = XMFLOAT4(0, 0, -10, 1);
 }
@@ -144,6 +151,29 @@ void ParticleGame::UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandL
 	}
 }
 
+void ParticleGame::UpdateTextureResourceFromFile(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, std::wstring fileName)
+{
+	auto device = Application::Get().GetDevice();
+	std::unique_ptr<uint8_t[]> tilesDDSData;
+	std::vector<D3D12_SUBRESOURCE_DATA> tilesSubresources;
+
+	LoadDDSTextureFromFile(device.Get(), fileName.c_str(), pDestinationResource, tilesDDSData, tilesSubresources);
+
+	const UINT64 uploadBufferSize = GetRequiredIntermediateSize(*pDestinationResource, 0, 1);
+
+	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+	ThrowIfFailed(device->CreateCommittedResource(
+		&uploadHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(pIntermediateResource)));
+
+	UpdateSubresources(commandList.Get(), *pDestinationResource, *pIntermediateResource, 0, 0, 1, &tilesSubresources[0]);
+}
+
 bool ParticleGame::LoadContent()
 {
 	auto device = Application::Get().GetDevice();
@@ -151,7 +181,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(5 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(6 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 	}
 
 	// Create root signatures
@@ -171,12 +201,28 @@ bool ParticleGame::LoadContent()
 			CD3DX12_DESCRIPTOR_RANGE1 renderRanges[1];
 			renderRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
 
-			CD3DX12_ROOT_PARAMETER1 rootParameters[2];
-			rootParameters[0].InitAsDescriptorTable(_countof(renderRanges), renderRanges);
+			CD3DX12_ROOT_PARAMETER1 rootParameters[3];
+			rootParameters[0].InitAsDescriptorTable(_countof(renderRanges), renderRanges, D3D12_SHADER_VISIBILITY_VERTEX);
 			rootParameters[1].InitAsConstants(sizeof(VSRootConstants) / 4, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+			rootParameters[2].InitAsDescriptorTable(_countof(renderRanges), renderRanges, D3D12_SHADER_VISIBILITY_PIXEL);
+
+			D3D12_STATIC_SAMPLER_DESC sampler = {};
+			sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
+			sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+			sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+			sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+			sampler.MipLODBias = 0;
+			sampler.MaxAnisotropy = 0;
+			sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
+			sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
+			sampler.MinLOD = 0.0f;
+			sampler.MaxLOD = D3D12_FLOAT32_MAX;
+			sampler.ShaderRegister = 0;
+			sampler.RegisterSpace = 0;
+			sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
-			RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 0, nullptr, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+			RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
 			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&RSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
 			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&RenderRS)));
@@ -217,6 +263,12 @@ bool ParticleGame::LoadContent()
 		}
 	}
 
+	// Get path to .exe directory (where .cso files are)
+	WCHAR assetsPath[512];
+	GetModuleFileNameW(nullptr, assetsPath, _countof(assetsPath));
+	std::wstring assetPathString = assetsPath;
+	assetPathString = assetPathString.substr(0, assetPathString.find_last_of(L"\\") + 1);
+
 	// Create PSO's
 	{
 		ComPtr<ID3DBlob> vertexShader;
@@ -224,12 +276,6 @@ bool ParticleGame::LoadContent()
 		ComPtr<ID3DBlob> computeEmitShader;
 		ComPtr<ID3DBlob> computeSimulateShader;
 		ComPtr<ID3DBlob> error;
-
-		// Get path to .exe directory (where .cso files are)
-		WCHAR assetsPath[512];
-		GetModuleFileNameW(nullptr, assetsPath, _countof(assetsPath));
-		std::wstring assetPathString = assetsPath;
-		assetPathString = assetPathString.substr(0, assetPathString.find_last_of(L"\\") + 1);
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &pixelShader));
@@ -241,7 +287,7 @@ bool ParticleGame::LoadContent()
 			D3D12_INPUT_ELEMENT_DESC inputLayout[] =
 			{
 				{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-				{ "COLOR", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+				{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
 			};
 
 			struct RenderPipelineStateStream
@@ -340,6 +386,7 @@ bool ParticleGame::LoadContent()
 	ComPtr<ID3D12Resource> intermediateDeadBuffer;
 	ComPtr<ID3D12Resource> intermediateDeadBufferCounter;
 	ComPtr<ID3D12Resource> intermediateStagedParticleBuffer;
+	ComPtr<ID3D12Resource> intermediateTilesTextureBuffer;
 
 	// Define descriptor heap
 	{
@@ -424,6 +471,15 @@ bool ParticleGame::LoadContent()
 			device->CreateShaderResourceView(StagedParticleBuffers.Get(), &srvDesc, descriptorHandle);
 			descriptorHandle.Offset(1, DescriptorSize);
 		}
+
+		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"bathroomtile.dds");
+		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.PlaneSlice = 0;
+		device->CreateShaderResourceView(TilesTexture.Get(), &srvDesc, descriptorHandle);
+		TransitionResource(commandList.Get(), TilesTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
 		// UAV counter reset (For AliveBuffer1)
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
@@ -548,7 +604,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 
 		float angle = XMConvertToRadians(static_cast<float>(e.TotalTime * 90));
 		VSRootConstants.MVP = DirectX::XMMatrixMultiply(viewMatrix, projectionMatrix);
-		VSRootConstants.InvView = DirectX::XMMatrixInverse(nullptr, viewMatrix);
+		VSRootConstants.CamPos = CameraPosition;
 		VSRootConstants.angle = angle;
 
 		CSRootConstants.deltaTime = deltaTime;
@@ -635,6 +691,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		commandList->SetGraphicsRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
 		commandList->SetGraphicsRoot32BitConstants(1, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
+		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
 
 		commandList->DrawIndexedInstanced(_countof(Indices), MaxParticleCount, 0, 0, 0);
 

@@ -72,6 +72,9 @@
     <ClInclude Include="source\ParticleGame\ParticleGame.h">
       <Filter>source\ParticleGame</Filter>
     </ClInclude>
+    <ClInclude Include="source\Framework\DDSTextureLoader12.h">
+      <Filter>source\Framework\Public</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DirectX12Particles.rc">
@@ -110,6 +113,9 @@
     </ClCompile>
     <ClCompile Include="source\ParticleGame\ParticleGame.cpp">
       <Filter>source\ParticleGame</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Framework\DDSTextureLoader12.cpp">
+      <Filter>source\Framework\Private</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

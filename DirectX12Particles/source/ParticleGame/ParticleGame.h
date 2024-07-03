@@ -34,6 +34,7 @@ private:
 		size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
 	void UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
 		size_t bufferSize, const void* bufferData);
+	void UpdateTextureResourceFromFile(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, std::wstring fileName);
 
 	// Resize the depth buffer to match the window area
 	void ResizeDepthBuffer(int width, int height);
@@ -51,7 +52,7 @@ private:
 	struct VSRootConstants
 	{
 		XMMATRIX MVP;
-		XMMATRIX InvView;
+		XMFLOAT4 CamPos;
 		float angle;
 	};
 
@@ -125,4 +126,7 @@ private:
 
 	XMFLOAT4 CameraPosition;
 	const float CameraMoveSpeed = 8;
+
+	// Texture loading test
+	ComPtr<ID3D12Resource> TilesTexture;
 };

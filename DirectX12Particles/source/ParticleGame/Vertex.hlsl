@@ -13,19 +13,19 @@ StructuredBuffer<ParticleData> particles : register(t0);
 cbuffer Matrices : register(b1)
 {
     matrix MVP;
-    matrix InvView;
+    float4 CamPos;
     float angle;
 };
 
 struct appdata
 {
     float3 Position : POSITION;
-    float3 Color : COLOR;
+    float2 UV : TEXCOORD;
 };
 
 struct v2f
 {
-    float4 Color : COLOR;
+    float2 UV: TEXCOORD;
     float4 Position : SV_Position;
 };
 
@@ -51,9 +51,8 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     v2f o;
     ParticleData data = particles[instanceID];
     
-    float4 pos = float4(mul(AngleAxis3x3(angle, normalize(float3(0, 1, 1))), i.Position), 1) + data.position;
-    o.Position = mul(MVP, pos);
-    o.Color = float4(i.Color, 1.0f);
+    o.Position = mul(MVP, float4(i.Position, 1) + data.position);
+    o.UV = i.UV;
     
     if (data.lifeTimeLeft <= 0) o.Position = float4(0, 0, 0, 0);
     
