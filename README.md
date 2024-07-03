@@ -2,6 +2,9 @@
 
 Placeholder for now
 
+## Using
+* [DDSTextureLoader](https://github.com/microsoft/DirectXTK12/wiki/DDSTextureLoader)
+
 ## References
 * [Jeremiah van Oosten's Amazing DX12 Tutorials](https://www.3dgep.com/category/graphics-programming/directx/directx-12/)
 * [turanszkij's Blog Post About GPU-Based Particle Systems in Their Engine, Wicked Engine](https://wickedengine.net/2017/11/gpu-based-particle-simulation/)
