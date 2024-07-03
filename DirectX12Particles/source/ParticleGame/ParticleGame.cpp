@@ -181,7 +181,8 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(6 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(7 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		RTVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
 	// Create root signatures
@@ -261,6 +262,22 @@ bool ParticleGame::LoadContent()
 			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&simulateRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
 			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&SimulateRS)));
 		}
+
+		// Create post-process compute signature
+		{
+			CD3DX12_DESCRIPTOR_RANGE1 postProcessRanges[1];
+			postProcessRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+
+			CD3DX12_ROOT_PARAMETER1 postProcessRootParameters[2];
+			postProcessRootParameters[0].InitAsDescriptorTable(_countof(postProcessRanges), postProcessRanges);
+			postProcessRootParameters[1].InitAsConstants(2, 0);
+
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC postProcessRSDescription;
+			postProcessRSDescription.Init_1_1(_countof(postProcessRootParameters), postProcessRootParameters);
+
+			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&postProcessRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&PostProcessRS)));
+		}
 	}
 
 	// Get path to .exe directory (where .cso files are)
@@ -275,12 +292,14 @@ bool ParticleGame::LoadContent()
 		ComPtr<ID3DBlob> pixelShader;
 		ComPtr<ID3DBlob> computeEmitShader;
 		ComPtr<ID3DBlob> computeSimulateShader;
+		ComPtr<ID3DBlob> computePostProcessShader;
 		ComPtr<ID3DBlob> error;
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Vertex.cso").c_str(), &vertexShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"Pixel.cso").c_str(), &pixelShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeEmitter.cso").c_str(), &computeEmitShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputePostProcess.cso").c_str(), &computePostProcessShader));
 
 		// Define rendering PSO
 		{
@@ -320,40 +339,46 @@ bool ParticleGame::LoadContent()
 			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&RenderPSO)));
 		}
 
+		struct ComputePipelineStateStream
+		{
+			CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
+			CD3DX12_PIPELINE_STATE_STREAM_CS CS;
+		} computePSS;
+
 		// Define emit PSO
 		{
-			struct EmitPipelineStateStream
-			{
-				CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-				CD3DX12_PIPELINE_STATE_STREAM_CS CS;
-			} emitPSS;
-
-			emitPSS.pRootSignature = EmitRS.Get();
-			emitPSS.CS = CD3DX12_SHADER_BYTECODE(computeEmitShader.Get());;
+			computePSS.pRootSignature = EmitRS.Get();
+			computePSS.CS = CD3DX12_SHADER_BYTECODE(computeEmitShader.Get());;
 
 			D3D12_PIPELINE_STATE_STREAM_DESC emitPSODesc =
 			{
-				sizeof(EmitPipelineStateStream), &emitPSS
+				sizeof(ComputePipelineStateStream), &computePSS
 			};
 			ThrowIfFailed(device->CreatePipelineState(&emitPSODesc, IID_PPV_ARGS(&EmitPSO)));
 		}
 
 		// Define simulate PSO
 		{
-			struct SimulatePipelineStateStream
-			{
-				CD3DX12_PIPELINE_STATE_STREAM_ROOT_SIGNATURE pRootSignature;
-				CD3DX12_PIPELINE_STATE_STREAM_CS CS;
-			} simulatePSS;
-
-			simulatePSS.pRootSignature = SimulateRS.Get();
-			simulatePSS.CS = CD3DX12_SHADER_BYTECODE(computeSimulateShader.Get());;
+			computePSS.pRootSignature = SimulateRS.Get();
+			computePSS.CS = CD3DX12_SHADER_BYTECODE(computeSimulateShader.Get());;
 
 			D3D12_PIPELINE_STATE_STREAM_DESC simulatePSODesc =
 			{
-				sizeof(SimulatePipelineStateStream), &simulatePSS
+				sizeof(ComputePipelineStateStream), &computePSS
 			};
 			ThrowIfFailed(device->CreatePipelineState(&simulatePSODesc, IID_PPV_ARGS(&SimulatePSO)));
+		}
+
+		// Define post-process PSO
+		{
+			computePSS.pRootSignature = PostProcessRS.Get();
+			computePSS.CS = CD3DX12_SHADER_BYTECODE(computePostProcessShader.Get());;
+
+			D3D12_PIPELINE_STATE_STREAM_DESC simulatePSODesc =
+			{
+				sizeof(ComputePipelineStateStream), &computePSS
+			};
+			ThrowIfFailed(device->CreatePipelineState(&simulatePSODesc, IID_PPV_ARGS(&PostProcessPSO)));
 		}
 	}
 
@@ -380,6 +405,8 @@ bool ParticleGame::LoadContent()
 	}
 
 	DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DescriptorSizeRTV = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+
 	ComPtr<ID3D12Resource> intermediateParticleBuffer;
 	ComPtr<ID3D12Resource> intermediateAlive0Buffer;
 	ComPtr<ID3D12Resource> intermediateAlive1Buffer;
@@ -415,6 +442,7 @@ bool ParticleGame::LoadContent()
 		particleAliveIndices[MaxParticleCount] = 0;
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSize);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
 
 		// Entry 0, Particle buffer for compute shaders
 		UpdateBufferResource(commandList.Get(), &ParticleBuffer, &intermediateParticleBuffer, _countof(particleData), sizeof(Particle), particleData, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
@@ -461,17 +489,18 @@ bool ParticleGame::LoadContent()
 		device->CreateShaderResourceView(DeadIndexListCounter.Get(), &srvDesc, descriptorHandle);
 
 		// Entries 5-7, Staged particle data for rendering
-		descriptorHandle.Offset(1, DescriptorSize);
 		UpdateBufferResource(commandList.Get(), &StagedParticleBuffers, &intermediateStagedParticleBuffer, _countof(stagedParticleData), sizeof(Particle), stagedParticleData);
 		srvDesc.Buffer.NumElements = MaxParticleCount;
 		srvDesc.Buffer.StructureByteStride = sizeof(Particle);
 		for (UINT frame = 0; frame < Window::BufferCount; frame++)
 		{
+			descriptorHandle.Offset(1, DescriptorSize);
 			srvDesc.Buffer.FirstElement = frame * MaxParticleCount;
 			device->CreateShaderResourceView(StagedParticleBuffers.Get(), &srvDesc, descriptorHandle);
-			descriptorHandle.Offset(1, DescriptorSize);
 		}
 
+		// Entry 8, Texture
+		descriptorHandle.Offset(1, DescriptorSize);
 		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"bathroomtile.dds");
 		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -480,6 +509,24 @@ bool ParticleGame::LoadContent()
 		srvDesc.Texture2D.PlaneSlice = 0;
 		device->CreateShaderResourceView(TilesTexture.Get(), &srvDesc, descriptorHandle);
 		TransitionResource(commandList.Get(), TilesTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+		// Entry 9, Post-processing texture
+		descriptorHandle.Offset(1, DescriptorSize);
+		CD3DX12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, pWindow->GetWindowWidth(), pWindow->GetWindowHeight(), 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+		uavDesc.Texture2D.MipSlice = 0;
+		uavDesc.Texture2D.PlaneSlice = 0;
+		device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&texDesc,
+			D3D12_RESOURCE_STATE_RENDER_TARGET,
+			nullptr,
+			IID_PPV_ARGS(&RenderTexture));
+		device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
+		device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
 
 		// UAV counter reset (For AliveBuffer1)
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
@@ -561,6 +608,33 @@ void ParticleGame::OnResize(ResizeEventArgs& e)
 		Viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(e.Width), static_cast<float>(e.Height));
 
 		ResizeDepthBuffer(e.Width, e.Height);
+
+		if (ContentLoaded)
+		{
+			auto device = Application::Get().GetDevice();
+
+			CD3DX12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, e.Width, e.Height, 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+			CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+			device->CreateCommittedResource(
+				&defaultHeapProperties,
+				D3D12_HEAP_FLAG_NONE,
+				&texDesc,
+				D3D12_RESOURCE_STATE_RENDER_TARGET,
+				nullptr,
+				IID_PPV_ARGS(&RenderTexture));
+
+			D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+			uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+			uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
+			uavDesc.Texture2D.MipSlice = 0;
+			uavDesc.Texture2D.PlaneSlice = 0;
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 9, DescriptorSize);
+			device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
+
+			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
+			device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
+		}
 	}
 }
 
@@ -614,7 +688,6 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 void ParticleGame::TransitionResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ComPtr<ID3D12Resource> resource, D3D12_RESOURCE_STATES beforeState, D3D12_RESOURCE_STATES afterState)
 {
 	CD3DX12_RESOURCE_BARRIER barrier = CD3DX12_RESOURCE_BARRIER::Transition(resource.Get(), beforeState, afterState);
-
 	commandList->ResourceBarrier(1, &barrier);
 }
 
@@ -626,6 +699,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	auto commandList = commandQueue->GetCommandList();
 	auto computeCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
 	auto computeCommandList = computeCommandQueue->GetCommandList();
+	// auto copyCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
+	// auto copyCommandList = copyCommandQueue->GetCommandList();
 
 	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
 	auto backBuffer = pWindow->GetCurrentBackBuffer();
@@ -679,10 +754,11 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
-		commandList->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
+		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, &dsv);
 
 		const FLOAT clearColor[] = { 0.8f, 0.2f, 0.1f, 1.0f };
-		commandList->ClearRenderTargetView(rtv, clearColor, 0, nullptr);
+		commandList->ClearRenderTargetView(descriptorHandleRTV, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
 		commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
@@ -695,7 +771,19 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 
 		commandList->DrawIndexedInstanced(_countof(Indices), MaxParticleCount, 0, 0, 0);
 
-		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT);
+		commandList->SetPipelineState(PostProcessPSO.Get());
+		commandList->SetComputeRootSignature(PostProcessRS.Get());
+
+		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
+		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
+		commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
+		commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
+
+		TransitionResource(commandList, RenderTexture, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_DEST);
+		commandList->CopyResource(backBuffer.Get(), RenderTexture.Get());
+		TransitionResource(commandList, RenderTexture, D3D12_RESOURCE_STATE_COPY_SOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT);
 	}
 
 	// Execute work
@@ -729,10 +817,11 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 	case KeyCode::Enter:
 		if (e.Alt)
 		{
+		[[fallthrough]];
 	case KeyCode::F11:
 		pWindow->ToggleFullScreen();
-		break;
 		}
+		break;
 	case KeyCode::V:
 		pWindow->ToggleVSync();
 		break;

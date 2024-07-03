@@ -77,9 +77,11 @@ private:
 
 	uint64_t FenceValues[Window::BufferCount] = {};
 
+	ComPtr<ID3D12DescriptorHeap> RTVHeap; // Used for post-processing, RTVHeap for rendering exists in Window class
 	ComPtr<ID3D12DescriptorHeap> DSVHeap;
 	ComPtr<ID3D12DescriptorHeap> DescriptorHeap;
 	UINT DescriptorSize;
+	UINT DescriptorSizeRTV;
 
 	ComPtr<ID3D12Resource> VertexBuffer;
 	ComPtr<ID3D12Resource> IndexBuffer;
@@ -90,10 +92,12 @@ private:
 	ComPtr<ID3D12RootSignature> RenderRS;
 	ComPtr<ID3D12RootSignature> EmitRS;
 	ComPtr<ID3D12RootSignature> SimulateRS;
+	ComPtr<ID3D12RootSignature> PostProcessRS;
 
 	ComPtr<ID3D12PipelineState> RenderPSO;
 	ComPtr<ID3D12PipelineState> EmitPSO;
 	ComPtr<ID3D12PipelineState> SimulatePSO;
+	ComPtr<ID3D12PipelineState> PostProcessPSO;
 
 	D3D12_VIEWPORT Viewport;
 	D3D12_RECT ScissorRect;
@@ -127,6 +131,6 @@ private:
 	XMFLOAT4 CameraPosition;
 	const float CameraMoveSpeed = 8;
 
-	// Texture loading test
 	ComPtr<ID3D12Resource> TilesTexture;
+	ComPtr<ID3D12Resource> RenderTexture;
 };
