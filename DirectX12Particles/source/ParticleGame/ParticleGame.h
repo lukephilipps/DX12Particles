@@ -45,8 +45,9 @@ private:
 		XMFLOAT4 velocity;
 		XMFLOAT4 acceleration;
 		float lifeTimeLeft;
+		float size;
 
-		float padding[51];
+		float padding[50];
 	};
 
 	struct WallOrientation
@@ -77,6 +78,8 @@ private:
 		XMFLOAT4 emitVelocityMax;
 		XMFLOAT4 emitAccelerationMin;
 		XMFLOAT4 emitAccelerationMax;
+		float particleStartScale;
+		float particleEndScale;
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;

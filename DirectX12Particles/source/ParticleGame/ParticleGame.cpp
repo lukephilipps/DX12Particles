@@ -14,10 +14,10 @@ struct VertexPosColor
 };
 
 static VertexPosColor Vertices[4] = {
-	{ XMFLOAT3(-0.2f, -0.2f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-0.2f,  0.2f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 0.2f,  0.2f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 0.2f, -0.2f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+	{ XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
 };
 
 static WORD Indices[6] = {
@@ -51,6 +51,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 10, 1, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, -9.8f, 0, 0);
 	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, -9.8f, 0, 0);
+	CSRootConstants.particleStartScale = 1.0f;
+	CSRootConstants.particleEndScale = 0.0f;
 
 	/*CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
 	CSRootConstants.emitAABBMax = XMFLOAT4(10, 10, 20, 0);

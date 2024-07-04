@@ -12,6 +12,8 @@ cbuffer RootConstants : register(b0)
     float4 emitVelocityMax;
     float4 emitAccelerationMin;
     float4 emitAccelerationMax;
+    float particleStartScale;
+    float particleEndScale;
 };
 
 struct Particle
@@ -20,8 +22,9 @@ struct Particle
     float4 velocity;
     float4 acceleration;
     float lifeTimeLeft;
+    float scale;
 
-    float padding[51];
+    float padding[50];
 };
 
 RWStructuredBuffer<Particle> Particles : register(u0);
@@ -46,6 +49,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         particle.velocity += particle.acceleration * deltaTime;
         particle.position += particle.velocity * deltaTime;
         particle.lifeTimeLeft -= deltaTime;
+        particle.scale = lerp(particleEndScale, particleStartScale, particle.lifeTimeLeft / particleLifetime);
         
         if (particle.lifeTimeLeft <= 0)
         {
