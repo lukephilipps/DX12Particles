@@ -206,7 +206,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(8 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(9 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 		RTVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
@@ -303,8 +303,9 @@ bool ParticleGame::LoadContent()
 
 		// Create post-process compute signature
 		{
-			CD3DX12_DESCRIPTOR_RANGE1 postProcessRanges[1];
+			CD3DX12_DESCRIPTOR_RANGE1 postProcessRanges[2];
 			postProcessRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			postProcessRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 			CD3DX12_ROOT_PARAMETER1 postProcessRootParameters[2];
 			postProcessRootParameters[0].InitAsDescriptorTable(_countof(postProcessRanges), postProcessRanges);
@@ -587,7 +588,19 @@ bool ParticleGame::LoadContent()
 		device->CreateShaderResourceView(TilesTexture.Get(), &srvDesc, descriptorHandle);
 		TransitionResource(commandList.Get(), TilesTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-		// Entry 9, Post-processing texture
+		// Entry 9, Room orientation buffer
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateBufferResource(commandList.Get(), &WallBuffer, &intermediateWallsBuffer, _countof(Walls), sizeof(WallOrientation), Walls);
+		D3D12_SHADER_RESOURCE_VIEW_DESC newDesc = {};
+		newDesc.Format = DXGI_FORMAT_UNKNOWN;
+		newDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
+		newDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		newDesc.Buffer.NumElements = _countof(Walls);
+		newDesc.Buffer.StructureByteStride = sizeof(WallOrientation);
+		newDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
+		device->CreateShaderResourceView(WallBuffer.Get(), &newDesc, descriptorHandle);
+
+		// Entry 10, Post-processing texture
 		descriptorHandle.Offset(1, DescriptorSize);
 		CD3DX12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, pWindow->GetWindowWidth(), pWindow->GetWindowHeight(), 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
@@ -604,18 +617,6 @@ bool ParticleGame::LoadContent()
 			IID_PPV_ARGS(&RenderTexture));
 		device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
 		device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
-
-		// Entry 10, Room orientation buffer
-		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResource(commandList.Get(), &WallBuffer, &intermediateWallsBuffer, _countof(Walls), sizeof(WallOrientation), Walls);
-		D3D12_SHADER_RESOURCE_VIEW_DESC newDesc = {};
-		newDesc.Format = DXGI_FORMAT_UNKNOWN;
-		newDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
-		newDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		newDesc.Buffer.NumElements = _countof(Walls);
-		newDesc.Buffer.StructureByteStride = sizeof(WallOrientation);
-		newDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		device->CreateShaderResourceView(WallBuffer.Get(), &newDesc, descriptorHandle);
 
 		// UAV counter reset (For AliveBuffer1)
 		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
@@ -685,6 +686,16 @@ void ParticleGame::ResizeDepthBuffer(int width, int height)
 		dsv.Flags = D3D12_DSV_FLAG_NONE;
 
 		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, DSVHeap->GetCPUDescriptorHandleForHeapStart());
+
+		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 11, DescriptorSize);
+		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.PlaneSlice = 0;
+		device->CreateShaderResourceView(DepthBuffer.Get(), &srvDesc, descriptorHandle);
 	}
 }
 
@@ -718,7 +729,7 @@ void ParticleGame::OnResize(ResizeEventArgs& e)
 			uavDesc.Texture2D.MipSlice = 0;
 			uavDesc.Texture2D.PlaneSlice = 0;
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 9, DescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 10, DescriptorSize);
 			device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
@@ -786,8 +797,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 	auto commandList = commandQueue->GetCommandList();
 	auto computeCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
 	auto computeCommandList = computeCommandQueue->GetCommandList();
-	// auto copyCommandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
-	// auto copyCommandList = copyCommandQueue->GetCommandList();
 
 	UINT currentBackBufferIndex = pWindow->GetCurrentBackBufferIndex();
 	auto backBuffer = pWindow->GetCurrentBackBuffer();
@@ -850,7 +859,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetPipelineState(WallsRenderPSO.Get());
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
-		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
 
@@ -870,7 +879,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
 		commandList->SetPipelineState(PostProcessPSO.Get());
 		commandList->SetComputeRootSignature(PostProcessRS.Get());
-		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
+		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
 		commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
 		commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
 
