@@ -10,6 +10,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 {
     if (id.x < WindowDimensions.x && id.y < WindowDimensions.y)
     {
-        SceneCap[id.xy].r = 1;
+        SceneCap[id.xy].b = 1;
     }
 }

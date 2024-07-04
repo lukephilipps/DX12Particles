@@ -49,11 +49,20 @@ private:
 		float padding[51];
 	};
 
+	struct WallOrientation
+	{
+		XMFLOAT4 position;
+		XMFLOAT4 axisOfRotation;
+		XMFLOAT4 scale;
+		float rotation;
+
+		float padding[51];
+	};
+
 	struct VSRootConstants
 	{
 		XMMATRIX V;
 		XMMATRIX P;
-		float angle;
 	};
 
 	struct CSRootConstants
@@ -94,7 +103,8 @@ private:
 	ComPtr<ID3D12RootSignature> SimulateRS;
 	ComPtr<ID3D12RootSignature> PostProcessRS;
 
-	ComPtr<ID3D12PipelineState> RenderPSO;
+	ComPtr<ID3D12PipelineState> ParticleRenderPSO;
+	ComPtr<ID3D12PipelineState> WallsRenderPSO;
 	ComPtr<ID3D12PipelineState> EmitPSO;
 	ComPtr<ID3D12PipelineState> SimulatePSO;
 	ComPtr<ID3D12PipelineState> PostProcessPSO;
@@ -133,4 +143,9 @@ private:
 
 	ComPtr<ID3D12Resource> TilesTexture;
 	ComPtr<ID3D12Resource> RenderTexture;
+	ComPtr<ID3D12Resource> WallBuffer;
+
+	WallOrientation Walls[1] = {
+		{ XMFLOAT4(0, -1, 0, 1), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(10, 10, 10, 1), XMConvertToRadians(90) },
+	};
 };
