@@ -11,7 +11,7 @@ struct ParticleData
 
 StructuredBuffer<ParticleData> Particles : register(t0);
 
-cbuffer Constants : register(b0)
+cbuffer RootConstants : register(b0)
 {
     matrix V;
     matrix P;

@@ -102,11 +102,13 @@ private:
 	D3D12_INDEX_BUFFER_VIEW IndexBufferView;
 
 	ComPtr<ID3D12RootSignature> RenderRS;
+	ComPtr<ID3D12RootSignature> AABBRS;
 	ComPtr<ID3D12RootSignature> EmitRS;
 	ComPtr<ID3D12RootSignature> SimulateRS;
 	ComPtr<ID3D12RootSignature> PostProcessRS;
 
 	ComPtr<ID3D12PipelineState> ParticleRenderPSO;
+	ComPtr<ID3D12PipelineState> AABBPSO;
 	ComPtr<ID3D12PipelineState> WallsRenderPSO;
 	ComPtr<ID3D12PipelineState> EmitPSO;
 	ComPtr<ID3D12PipelineState> SimulatePSO;
@@ -148,7 +150,10 @@ private:
 	ComPtr<ID3D12Resource> RenderTexture;
 	ComPtr<ID3D12Resource> WallBuffer;
 
-	WallOrientation Walls[1] = {
-		{ XMFLOAT4(0, -1, 0, 1), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(10, 10, 10, 1), XMConvertToRadians(90) },
+	WallOrientation Walls[4] = {
+		{ XMFLOAT4( 0.0f, -4.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4(-4.0f,  0.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
+		{ XMFLOAT4( 4.0f,  0.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 0.0f,  0.0f, 4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
 	};
 };

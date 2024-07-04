@@ -7,13 +7,13 @@
 
 using namespace DirectX;
 
-struct VertexPosColor
+struct VertexTexCoord
 {
 	XMFLOAT3 Position;
 	XMFLOAT3 Color;
 };
 
-static VertexPosColor Vertices[8] = {
+static VertexTexCoord Vertices[8] = {
 	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
@@ -89,11 +89,11 @@ bool CubeRenderer::LoadContent()
 	auto commandList = commandQueue->GetCommandList();
 
 	ComPtr<ID3D12Resource> intermediateVertexBuffer;
-	UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
+	UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexTexCoord), Vertices);
 
 	VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
 	VertexBufferView.SizeInBytes = sizeof(Vertices);
-	VertexBufferView.StrideInBytes = sizeof(VertexPosColor);
+	VertexBufferView.StrideInBytes = sizeof(VertexTexCoord);
 
 	ComPtr<ID3D12Resource> intermediateIndexBuffer;
 	UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);

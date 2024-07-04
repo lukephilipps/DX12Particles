@@ -7,21 +7,53 @@
 
 using namespace DirectX;
 
-struct VertexPosColor
+struct VertexTexCoord
 {
 	XMFLOAT3 Position;
 	XMFLOAT2 TexCoord;
 };
 
-static VertexPosColor Vertices[4] = {
-	{ XMFLOAT3(-1.0f, -1.0f, 0.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, 0.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, 0.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, 0.0f), XMFLOAT2(1.0f, 0.0f) }
+static VertexTexCoord Vertices[28] = {
+	// Billboard
+	{ XMFLOAT3(-1.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
+
+	// Box faces (made some for each pair of sides for UV cords)
+	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
+	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) }
 };
 
-static WORD Indices[6] = {
-	0, 1, 2, 0, 2, 3
+static WORD Indices[36] = {
+	0, 1, 2, 0, 2, 3,
+	4, 6, 5, 4, 7, 6,
+	12, 13, 9, 12, 9, 8,
+	11, 10, 14, 11, 14, 15,
+	17, 21, 22, 17, 22, 18,
+	20, 16, 19, 20, 19, 23
 };
 
 const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
@@ -42,16 +74,16 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 3;
+	CSRootConstants.particleLifetime = 1.5;
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-1, 0, -1, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4(1, 1, 1, 0);
-	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, 6.8f, -1, 0);
-	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 10, 1, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-1, -3, -1, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4(1, -2, 1, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-3, 6.8f, -3, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4(3, 10, 3, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, -9.8f, 0, 0);
 	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, -9.8f, 0, 0);
-	CSRootConstants.particleStartScale = 1.0f;
+	CSRootConstants.particleStartScale = 0.25f;
 	CSRootConstants.particleEndScale = 0.0f;
 
 	/*CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
@@ -222,6 +254,19 @@ bool ParticleGame::LoadContent()
 			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&RenderRS)));
 		}
 
+		// Create AABB visualizing root signature
+		{
+			CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+			rootParameters[0].InitAsConstants(sizeof(VSRootConstants) / 4, 0, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+			rootParameters[1].InitAsConstants(sizeof(CSRootConstants) / 4, 1, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+
+			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC RSDescription;
+			RSDescription.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
+
+			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&RSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
+			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&AABBRS)));
+		}
+
 		// Create emitter compute signature
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
@@ -283,7 +328,9 @@ bool ParticleGame::LoadContent()
 	{
 		ComPtr<ID3DBlob> vertexParticleShader;
 		ComPtr<ID3DBlob> vertexWallsShader;
+		ComPtr<ID3DBlob> vertexAABBShader;
 		ComPtr<ID3DBlob> pixelShader;
+		ComPtr<ID3DBlob> pixelAABBShader;
 		ComPtr<ID3DBlob> computeEmitShader;
 		ComPtr<ID3DBlob> computeSimulateShader;
 		ComPtr<ID3DBlob> computePostProcessShader;
@@ -291,7 +338,9 @@ bool ParticleGame::LoadContent()
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexParticle.cso").c_str(), &vertexParticleShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexRoom.cso").c_str(), &vertexWallsShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexAABB.cso").c_str(), &vertexAABBShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"PixelParticle.cso").c_str(), &pixelShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"PixelAABB.cso").c_str(), &pixelAABBShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeEmitter.cso").c_str(), &computeEmitShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputePostProcess.cso").c_str(), &computePostProcessShader));
@@ -311,6 +360,7 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_PS PS;
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
+			CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
 		} renderPSS;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
@@ -323,6 +373,9 @@ bool ParticleGame::LoadContent()
 		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		renderPSS.RTVFormats = rtvFormats;
+
+		CD3DX12_RASTERIZER_DESC rasterizer = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+		renderPSS.Rasterizer = rasterizer;
 
 		// Define particle rendering PSO
 		{
@@ -344,6 +397,22 @@ bool ParticleGame::LoadContent()
 				sizeof(RenderPipelineStateStream), &renderPSS
 			};
 			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&WallsRenderPSO)));
+		}
+
+		// Define AABB PSO
+		{
+			renderPSS.pRootSignature = AABBRS.Get();
+			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexAABBShader.Get());
+			renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelAABBShader.Get());
+
+			rasterizer.CullMode = D3D12_CULL_MODE_NONE;
+			renderPSS.Rasterizer = rasterizer;
+
+			D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
+			{
+				sizeof(RenderPipelineStateStream), &renderPSS
+			};
+			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&AABBPSO)));
 		}
 
 		struct ComputePipelineStateStream
@@ -392,17 +461,16 @@ bool ParticleGame::LoadContent()
 	auto commandQueue = Application::Get().GetCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
 	auto commandList = commandQueue->GetCommandList();
 	ComPtr<ID3D12Resource> intermediateVertexBuffer;
-	ComPtr<ID3D12Resource> intermediateRoomVertexBuffer;
 	ComPtr<ID3D12Resource> intermediateIndexBuffer;
 
 	// Create Vertex/Index Buffer
 	{
-		UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexPosColor), Vertices);
+		UpdateBufferResource(commandList.Get(), &VertexBuffer, &intermediateVertexBuffer, _countof(Vertices), sizeof(VertexTexCoord), Vertices);
 		TransitionResource(commandList, VertexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 
 		VertexBufferView.BufferLocation = VertexBuffer->GetGPUVirtualAddress();
 		VertexBufferView.SizeInBytes = sizeof(Vertices);
-		VertexBufferView.StrideInBytes = sizeof(VertexPosColor);
+		VertexBufferView.StrideInBytes = sizeof(VertexTexCoord);
 
 		UpdateBufferResource(commandList.Get(), &IndexBuffer, &intermediateIndexBuffer, _countof(Indices), sizeof(WORD), Indices);
 		TransitionResource(commandList, IndexBuffer, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
@@ -784,17 +852,24 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
-		commandList->DrawIndexedInstanced(_countof(Indices), _countof(Walls), 0, 0, 0);
+		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
 
 		// Render Particles
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
-		commandList->DrawIndexedInstanced(_countof(Indices), MaxParticleCount, 0, 0, 0);
+		commandList->DrawIndexedInstanced(6, MaxParticleCount, 0, 0, 0);
 
+		// Render AABB of particle sim
+		commandList->SetPipelineState(AABBPSO.Get());
+		commandList->SetGraphicsRootSignature(AABBRS.Get());
+		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
+		commandList->SetGraphicsRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
+		commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 4, 0);
+
+		// Post-processing
+		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
 		commandList->SetPipelineState(PostProcessPSO.Get());
 		commandList->SetComputeRootSignature(PostProcessRS.Get());
-
-		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
 		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
 		commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);

@@ -5,12 +5,12 @@ struct WallData
     float4 scale;
     float rotation;
     
-    float buffer[55];
+    float buffer[51];
 };
 
 StructuredBuffer<WallData> Walls : register(t0);
 
-cbuffer Constants : register(b0)
+cbuffer RootConstants : register(b0)
 {
     matrix V;
     matrix P;
@@ -51,7 +51,7 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     
     WallData data = Walls[instanceID];
     
-    o.Position = mul(P, mul(V, float4(mul(AngleAxis3x3(data.rotation, data.axisOfRotation.xyz), i.Position * data.scale.xyz), 1) + data.position));
+    o.Position = mul(P, mul(V, float4(mul(AngleAxis3x3(data.rotation, data.axisOfRotation.xyz), i.Position * data.scale.xyz), 0) + data.position));
     o.UV = i.UV;
     
     return o;
