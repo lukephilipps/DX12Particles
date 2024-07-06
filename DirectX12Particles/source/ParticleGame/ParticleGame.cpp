@@ -310,7 +310,7 @@ bool ParticleGame::LoadContent()
 
 			CD3DX12_ROOT_PARAMETER1 postProcessRootParameters[2];
 			postProcessRootParameters[0].InitAsDescriptorTable(_countof(postProcessRanges), postProcessRanges);
-			postProcessRootParameters[1].InitAsConstants(2, 0);
+			postProcessRootParameters[1].InitAsConstants(sizeof(PPRootConstants) / 4, 0);
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC postProcessRSDescription;
 			postProcessRSDescription.Init_1_1(_countof(postProcessRootParameters), postProcessRootParameters, 1, &sampler);
@@ -667,6 +667,8 @@ bool ParticleGame::LoadContent()
 	ContentLoaded = true;
 
 	ResizeDepthBuffer(GetWindowWidth(), GetWindowHeight());
+	PPRootConstants.windowWidth = GetWindowWidth();
+	PPRootConstants.windowHeight = GetWindowHeight();
 
 	return true;
 }
@@ -754,11 +756,14 @@ void ParticleGame::OnResize(ResizeEventArgs& e)
 			uavDesc.Texture2D.MipSlice = 0;
 			uavDesc.Texture2D.PlaneSlice = 0;
 
-			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 10, DescriptorSize);
+			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 11, DescriptorSize);
 			device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
 			device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
+
+			PPRootConstants.windowWidth = e.Width;
+			PPRootConstants.windowHeight = e.Height;
 		}
 	}
 }
@@ -803,6 +808,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 
 		VSRootConstants.V = viewMatrix;
 		VSRootConstants.P = projectionMatrix;
+
+		PPRootConstants.invVP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
 
 		CSRootConstants.deltaTime = deltaTime;
 	}
@@ -888,9 +895,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
 
-		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, nullptr);
-
 		// Render Particles
+		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, nullptr);
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
@@ -906,12 +912,11 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		// Post-processing
 		if (UsePostProcess)
 		{
-			int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
 			commandList->SetPipelineState(PostProcessPSO.Get());
 			commandList->SetComputeRootSignature(PostProcessRS.Get());
 			commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
-			commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
-			commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
+			commandList->SetComputeRoot32BitConstants(1, sizeof(PPRootConstants) / 4, reinterpret_cast<void*>(&PPRootConstants), 0);
+			commandList->Dispatch(static_cast<UINT>(ceil(PPRootConstants.windowWidth / 8.0f)), static_cast<UINT>(ceil(PPRootConstants.windowHeight / 8.0f)), 1);
 		}
 
 		TransitionResource(commandList, RenderTexture, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
@@ -966,14 +971,14 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 	case KeyCode::Left:
 		drawOffset += -deltaTime * 20.0f;
 		break;
-	case KeyCode::Space:
+	case KeyCode::F:
 		Application::Get().Flush();
 		UseCompute = !UseCompute;
 		char buffer[512];
 		sprintf_s(buffer, "Using Compute?: %d\n", UseCompute);
 		OutputDebugStringA(buffer);
 		break;
-	case KeyCode::F:
+	case KeyCode::Space:
 		UsePostProcess = !UsePostProcess;
 		char buffer2[512];
 		sprintf_s(buffer2, "Post Processing?: %d\n", UsePostProcess);

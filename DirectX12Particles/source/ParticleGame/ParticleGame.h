@@ -82,10 +82,18 @@ private:
 		float particleEndScale;
 	};
 
+	struct PPRootConstants
+	{
+		int windowWidth;
+		int windowHeight;
+		XMMATRIX invVP;
+	};
+
 	static const UINT ComputeThreadGroupSize = 128;
 
 	VSRootConstants VSRootConstants;
 	CSRootConstants CSRootConstants;
+	PPRootConstants PPRootConstants;
 
 	uint64_t FenceValues[Window::BufferCount] = {};
 
