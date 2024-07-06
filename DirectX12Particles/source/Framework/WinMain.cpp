@@ -18,7 +18,7 @@ INT CALLBACK WinMain(HINSTANCE, HINSTANCE, LPSTR, INT)
 
 	Application::Create(HInstance());
 	{
-		std::shared_ptr<ParticleGame> demo = std::make_shared<ParticleGame>(L"PARTICLE SIM", 1280, 720);
+		std::shared_ptr<ParticleGame> demo = std::make_shared<ParticleGame>(L"PARTICLE SIM", 1280, 720, true);
 		retCode = Application::Get().Run(demo);
 	}
 	Application::Destroy();

@@ -123,6 +123,7 @@ private:
 
 	bool ContentLoaded;
 	bool UseCompute;
+	bool UsePostProcess;
 
 	static const UINT MaxParticleCount = 1000;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;

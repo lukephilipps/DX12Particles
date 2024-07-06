@@ -65,7 +65,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, FoV(45.0)
 	, ContentLoaded(false)
 	, drawOffset(0)
-	, UseCompute(false)
+	, UseCompute(true)
+	, UsePostProcess(true)
 	, deltaTime(0)
 	, PressingW(false)
 	, PressingA(false)
@@ -232,7 +233,7 @@ bool ParticleGame::LoadContent()
 		sampler.MaxLOD = D3D12_FLOAT32_MAX;
 		sampler.ShaderRegister = 0;
 		sampler.RegisterSpace = 0;
-		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+		sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
 		ComPtr<ID3DBlob> RSBlob;
 		ComPtr<ID3DBlob> errorBlob;
@@ -312,7 +313,7 @@ bool ParticleGame::LoadContent()
 			postProcessRootParameters[1].InitAsConstants(2, 0);
 
 			CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC postProcessRSDescription;
-			postProcessRSDescription.Init_1_1(_countof(postProcessRootParameters), postProcessRootParameters);
+			postProcessRSDescription.Init_1_1(_countof(postProcessRootParameters), postProcessRootParameters, 1, &sampler);
 
 			ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&postProcessRSDescription, featureData.HighestVersion, &RSBlob, &errorBlob));
 			ThrowIfFailed(device->CreateRootSignature(0, RSBlob->GetBufferPointer(), RSBlob->GetBufferSize(), IID_PPV_ARGS(&PostProcessRS)));
@@ -903,12 +904,15 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 4, 0);*/
 
 		// Post-processing
-		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
-		commandList->SetPipelineState(PostProcessPSO.Get());
-		commandList->SetComputeRootSignature(PostProcessRS.Get());
-		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
-		commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
-		commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
+		if (UsePostProcess)
+		{
+			int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
+			commandList->SetPipelineState(PostProcessPSO.Get());
+			commandList->SetComputeRootSignature(PostProcessRS.Get());
+			commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
+			commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
+			commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
+		}
 
 		TransitionResource(commandList, RenderTexture, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
 		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);
@@ -968,6 +972,12 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		char buffer[512];
 		sprintf_s(buffer, "Using Compute?: %d\n", UseCompute);
 		OutputDebugStringA(buffer);
+		break;
+	case KeyCode::F:
+		UsePostProcess = !UsePostProcess;
+		char buffer2[512];
+		sprintf_s(buffer2, "Post Processing?: %d\n", UsePostProcess);
+		OutputDebugStringA(buffer2);
 		break;
 	case KeyCode::W:
 		PressingW = true;
