@@ -9,9 +9,12 @@ Texture2D DepthBuffer : register(t0);
 [numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID)
 {
+    static const float nearDistance = 0.1f;
+    static const float farDistance = 100.0f;
+    
     if (id.x < WindowDimensions.x && id.y < WindowDimensions.y)
     {
-        //SceneCap[id.xy].r = 1;
-        SceneCap[id.xy].r = DepthBuffer[id.xy].r;
+        // Visualize Depth
+        SceneCap[id.xy] = (2.0f * nearDistance) / (farDistance + nearDistance - DepthBuffer[id.xy].r * (farDistance - nearDistance));;
     }
 }

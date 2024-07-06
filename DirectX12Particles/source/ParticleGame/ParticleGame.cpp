@@ -869,11 +869,11 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->DrawIndexedInstanced(6, MaxParticleCount, 0, 0, 0);
 
 		// Render AABB of particle sim
-		commandList->SetPipelineState(AABBPSO.Get());
+		/*commandList->SetPipelineState(AABBPSO.Get());
 		commandList->SetGraphicsRootSignature(AABBRS.Get());
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 		commandList->SetGraphicsRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
-		commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 4, 0);
+		commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 4, 0);*/
 
 		// Post-processing
 		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
