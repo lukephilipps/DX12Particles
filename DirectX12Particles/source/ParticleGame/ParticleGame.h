@@ -147,13 +147,20 @@ private:
 	const float CameraMoveSpeed = 8;
 
 	ComPtr<ID3D12Resource> TilesTexture;
+	ComPtr<ID3D12Resource> WallsTexture;
 	ComPtr<ID3D12Resource> RenderTexture;
 	ComPtr<ID3D12Resource> WallBuffer;
 
-	WallOrientation Walls[4] = {
-		{ XMFLOAT4( 0.0f, -4.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4(-4.0f,  0.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
-		{ XMFLOAT4( 4.0f,  0.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 0.0f,  0.0f, 4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
+	WallOrientation Walls[10] = {
+		{ XMFLOAT4(-4.0f, -4.0f,  0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 4.0f, -4.0f,  0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4(-4.0f, -4.0f, -8.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 4.0f, -4.0f, -8.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4(-8.0f,  0.0f,  0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
+		{ XMFLOAT4(-8.0f,  0.0f, -8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
+		{ XMFLOAT4( 8.0f,  0.0f,  0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 8.0f,  0.0f, -8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4(-4.0f,  0.0f,  4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
+		{ XMFLOAT4( 4.0f,  0.0f,  4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
 	};
 };

@@ -206,7 +206,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(9 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(10 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 		RTVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
@@ -362,11 +362,21 @@ bool ParticleGame::LoadContent()
 			CD3DX12_PIPELINE_STATE_STREAM_DEPTH_STENCIL_FORMAT DSVFormat;
 			CD3DX12_PIPELINE_STATE_STREAM_RENDER_TARGET_FORMATS RTVFormats;
 			CD3DX12_PIPELINE_STATE_STREAM_RASTERIZER Rasterizer;
+			CD3DX12_PIPELINE_STATE_STREAM_BLEND_DESC BlendMode;
 		} renderPSS;
 
 		D3D12_RT_FORMAT_ARRAY rtvFormats = {};
 		rtvFormats.NumRenderTargets = 1;
 		rtvFormats.RTFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+
+		CD3DX12_RASTERIZER_DESC rasterizer = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+
+		CD3DX12_BLEND_DESC blendMode = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+		blendMode.RenderTarget[0].BlendEnable = true;
+		blendMode.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
+		blendMode.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+		blendMode.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
+		blendMode.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
 
 		renderPSS.pRootSignature = RenderRS.Get();
 		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
@@ -374,9 +384,8 @@ bool ParticleGame::LoadContent()
 		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
 		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		renderPSS.RTVFormats = rtvFormats;
-
-		CD3DX12_RASTERIZER_DESC rasterizer = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
 		renderPSS.Rasterizer = rasterizer;
+		renderPSS.BlendMode = blendMode;
 
 		// Define particle rendering PSO
 		{
@@ -391,6 +400,8 @@ bool ParticleGame::LoadContent()
 
 		// Define room rendering PSO
 		{
+			blendMode.RenderTarget[0].BlendEnable = false;
+			renderPSS.BlendMode = blendMode;
 			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexWallsShader.Get());
 
 			D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
@@ -491,6 +502,7 @@ bool ParticleGame::LoadContent()
 	ComPtr<ID3D12Resource> intermediateDeadBufferCounter;
 	ComPtr<ID3D12Resource> intermediateStagedParticleBuffer;
 	ComPtr<ID3D12Resource> intermediateTilesTextureBuffer;
+	ComPtr<ID3D12Resource> intermediateWallsTextureBuffer;
 	ComPtr<ID3D12Resource> intermediateWallsBuffer;
 
 	// Define descriptor heap
@@ -577,10 +589,10 @@ bool ParticleGame::LoadContent()
 			device->CreateShaderResourceView(StagedParticleBuffers.Get(), &srvDesc, descriptorHandle);
 		}
 
-		// Entry 8, Texture
+		// Entry 8, Particle Texture
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"bathroomtile.dds");
-		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
+		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"Particle.dds");
+		srvDesc.Format = DXGI_FORMAT_BC3_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
@@ -588,7 +600,18 @@ bool ParticleGame::LoadContent()
 		device->CreateShaderResourceView(TilesTexture.Get(), &srvDesc, descriptorHandle);
 		TransitionResource(commandList.Get(), TilesTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-		// Entry 9, Room orientation buffer
+		// Entry 9, Walls Texture
+		descriptorHandle.Offset(1, DescriptorSize);
+		UpdateTextureResourceFromFile(commandList.Get(), &WallsTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
+		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
+		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		srvDesc.Texture2D.MostDetailedMip = 0;
+		srvDesc.Texture2D.MipLevels = 1;
+		srvDesc.Texture2D.PlaneSlice = 0;
+		device->CreateShaderResourceView(WallsTexture.Get(), &srvDesc, descriptorHandle);
+		TransitionResource(commandList.Get(), WallsTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+
+		// Entry 10, Room orientation buffer
 		descriptorHandle.Offset(1, DescriptorSize);
 		UpdateBufferResource(commandList.Get(), &WallBuffer, &intermediateWallsBuffer, _countof(Walls), sizeof(WallOrientation), Walls);
 		D3D12_SHADER_RESOURCE_VIEW_DESC newDesc = {};
@@ -600,7 +623,7 @@ bool ParticleGame::LoadContent()
 		newDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
 		device->CreateShaderResourceView(WallBuffer.Get(), &newDesc, descriptorHandle);
 
-		// Entry 10, Post-processing texture
+		// Entry 11, Post-processing texture
 		descriptorHandle.Offset(1, DescriptorSize);
 		CD3DX12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, pWindow->GetWindowWidth(), pWindow->GetWindowHeight(), 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
 		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
@@ -687,7 +710,7 @@ void ParticleGame::ResizeDepthBuffer(int width, int height)
 
 		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, DSVHeap->GetCPUDescriptorHandleForHeapStart());
 
-		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 11, DescriptorSize);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 12, DescriptorSize);
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
@@ -847,7 +870,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->RSSetViewports(1, &Viewport);
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
-		const FLOAT clearColor[] = { 0.8f, 0.2f, 0.1f, 1.0f };
+		const FLOAT clearColor[] = { 0.0f, 0.3f, 0.0f, 1.0f };
 		commandList->ClearRenderTargetView(descriptorHandleRTV, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
@@ -859,13 +882,14 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetPipelineState(WallsRenderPSO.Get());
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
-		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
-		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
 
 		// Render Particles
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, MaxParticleCount, 0, 0, 0);
 
 		// Render AABB of particle sim
@@ -879,7 +903,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		int windowDimensions[2] = {pWindow->GetWindowWidth(), pWindow->GetWindowHeight()};
 		commandList->SetPipelineState(PostProcessPSO.Get());
 		commandList->SetComputeRootSignature(PostProcessRS.Get());
-		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
+		commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
 		commandList->SetComputeRoot32BitConstants(1, 2, windowDimensions, 0);
 		commandList->Dispatch(static_cast<UINT>(ceil(windowDimensions[0] / 8.0f)), static_cast<UINT>(ceil(windowDimensions[1] / 8.0f)), 1);
 
