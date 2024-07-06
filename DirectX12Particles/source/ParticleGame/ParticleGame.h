@@ -151,16 +151,22 @@ private:
 	ComPtr<ID3D12Resource> RenderTexture;
 	ComPtr<ID3D12Resource> WallBuffer;
 
-	WallOrientation Walls[10] = {
-		{ XMFLOAT4(-4.0f, -4.0f,  0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 4.0f, -4.0f,  0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4(-4.0f, -4.0f, -8.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 4.0f, -4.0f, -8.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4(-8.0f,  0.0f,  0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
-		{ XMFLOAT4(-8.0f,  0.0f, -8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(-90) },
-		{ XMFLOAT4( 8.0f,  0.0f,  0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 8.0f,  0.0f, -8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4(-4.0f,  0.0f,  4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
-		{ XMFLOAT4( 4.0f,  0.0f,  4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(4.0f, 4.0f, 4.0f, 1.0f), XMConvertToRadians(  0) },
+	WallOrientation Walls[9] = {
+		// Floors
+		{ XMFLOAT4( 0.0f, -5.0f,   0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 0.0f, -5.0f, -10.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
+
+		// Side walls
+		{ XMFLOAT4(-5.0f,  0.0f,   0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
+		{ XMFLOAT4(-5.0f,  0.0f, -10.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
+		{ XMFLOAT4( 5.0f,  0.0f,   0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
+		{ XMFLOAT4( 5.0f,  0.0f, -10.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
+
+		// Back walls
+		{ XMFLOAT4( 0.0f,  0.0f,   5.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(  0) },
+
+		// Ceiling
+		{ XMFLOAT4( 0.0f,  5.0f,   0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
+		{ XMFLOAT4( 0.0f,  5.0f, -10.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
 	};
 };

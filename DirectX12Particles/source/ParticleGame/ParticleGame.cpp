@@ -74,17 +74,17 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 1.5;
+	CSRootConstants.particleLifetime = 1.5f;
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-1, -3, -1, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4(1, -2, 1, 0);
-	CSRootConstants.emitVelocityMin = XMFLOAT4(-3, 6.8f, -3, 0);
-	CSRootConstants.emitVelocityMax = XMFLOAT4(3, 10, 3, 0);
-	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, -9.8f, 0, 0);
-	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, -9.8f, 0, 0);
-	CSRootConstants.particleStartScale = 0.25f;
-	CSRootConstants.particleEndScale = 0.0f;
+	CSRootConstants.emitAABBMin = XMFLOAT4(-0.5f, -3, -0.5f, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 0.5f, -2,  0.5f, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-0.5f, 0.8f, -0.5f, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4( 0.5f, 1.0f,  0.5f, 0);
+	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.15f, 3.8f, -0.15f, 0);
+	CSRootConstants.emitAccelerationMax = XMFLOAT4( 0.15f, 4.8f,  0.15f, 0);
+	CSRootConstants.particleStartScale = 0.30f;
+	CSRootConstants.particleEndScale = 0.05f;
 
 	/*CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
 	CSRootConstants.emitAABBMax = XMFLOAT4(10, 10, 20, 0);
@@ -382,7 +382,7 @@ bool ParticleGame::LoadContent()
 		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
 		renderPSS.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
+		renderPSS.DSVFormat = DXGI_FORMAT_UNKNOWN;
 		renderPSS.RTVFormats = rtvFormats;
 		renderPSS.Rasterizer = rasterizer;
 		renderPSS.BlendMode = blendMode;
@@ -402,6 +402,7 @@ bool ParticleGame::LoadContent()
 		{
 			blendMode.RenderTarget[0].BlendEnable = false;
 			renderPSS.BlendMode = blendMode;
+			renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexWallsShader.Get());
 
 			D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
@@ -870,7 +871,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->RSSetViewports(1, &Viewport);
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
-		const FLOAT clearColor[] = { 0.0f, 0.3f, 0.0f, 1.0f };
+		const FLOAT clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
 		commandList->ClearRenderTargetView(descriptorHandleRTV, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 
@@ -885,6 +886,8 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
+
+		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, nullptr);
 
 		// Render Particles
 		commandList->SetPipelineState(ParticleRenderPSO.Get());

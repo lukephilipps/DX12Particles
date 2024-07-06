@@ -15,6 +15,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     if (id.x < WindowDimensions.x && id.y < WindowDimensions.y)
     {
         // Visualize Depth
-        //SceneCap[id.xy] = (2.0f * nearDistance) / (farDistance + nearDistance - DepthBuffer[id.xy].r * (farDistance - nearDistance));;
+        SceneCap[id.xy] = (2.0f * nearDistance) / (farDistance + nearDistance - DepthBuffer[id.xy].r * (farDistance - nearDistance));;
     }
 }

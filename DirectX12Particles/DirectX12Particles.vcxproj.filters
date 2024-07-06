@@ -125,15 +125,6 @@
     <FxCompile Include="source\CubeRenderer\v_Passthrough.hlsl">
       <Filter>source\CubeRenderer</Filter>
     </FxCompile>
-    <FxCompile Include="source\ParticleGame\Compute.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
-    <FxCompile Include="source\ParticleGame\Vertex.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
-    <FxCompile Include="source\ParticleGame\Pixel.hlsl">
-      <Filter>source\ParticleGame</Filter>
-    </FxCompile>
     <FxCompile Include="source\ParticleGame\ComputeEmitter.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
@@ -141,6 +132,24 @@
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
     <FxCompile Include="source\ParticleGame\ComputeGenerateArgs.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\ComputePostProcess.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\PixelAABB.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\PixelParticle.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\VertexAABB.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\VertexParticle.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\VertexRoom.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
   </ItemGroup>
