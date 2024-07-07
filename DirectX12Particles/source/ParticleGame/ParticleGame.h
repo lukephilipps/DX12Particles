@@ -50,14 +50,17 @@ private:
 		float padding[50];
 	};
 
-	struct WallOrientation
+	struct PlaneData
 	{
 		XMFLOAT4 position;
 		XMFLOAT4 axisOfRotation;
 		XMFLOAT4 scale;
+		XMFLOAT4 color;
+		XMFLOAT4 UVMinMax; // uvStartx, uvEndx, uvStarty, uvEndy
+		float colorOverride; // lerps between texture and color supplied above
 		float rotation;
 
-		float padding[51];
+		float padding[42];
 	};
 
 	struct VSRootConstants
@@ -102,6 +105,7 @@ private:
 	ComPtr<ID3D12DescriptorHeap> DescriptorHeap;
 	UINT DescriptorSize;
 	UINT DescriptorSizeRTV;
+	UINT DescriptorSizeDSV;
 
 	ComPtr<ID3D12Resource> VertexBuffer;
 	ComPtr<ID3D12Resource> IndexBuffer;
@@ -117,7 +121,7 @@ private:
 
 	ComPtr<ID3D12PipelineState> ParticleRenderPSO;
 	ComPtr<ID3D12PipelineState> AABBPSO;
-	ComPtr<ID3D12PipelineState> WallsRenderPSO;
+	ComPtr<ID3D12PipelineState> PlaneRenderPSO;
 	ComPtr<ID3D12PipelineState> EmitPSO;
 	ComPtr<ID3D12PipelineState> SimulatePSO;
 	ComPtr<ID3D12PipelineState> PostProcessPSO;
@@ -156,26 +160,14 @@ private:
 	const float CameraMoveSpeed = 8;
 
 	ComPtr<ID3D12Resource> TilesTexture;
-	ComPtr<ID3D12Resource> WallsTexture;
+	ComPtr<ID3D12Resource> WallTexture;
 	ComPtr<ID3D12Resource> RenderTexture;
-	ComPtr<ID3D12Resource> WallBuffer;
+	ComPtr<ID3D12Resource> PlaneBuffer;
 
-	WallOrientation Walls[9] = {
-		// Floors
-		{ XMFLOAT4( 0.0f, -5.0f,   0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 0.0f, -5.0f, -10.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
-
-		// Side walls
-		{ XMFLOAT4(-5.0f,  0.0f,   0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
-		{ XMFLOAT4(-5.0f,  0.0f, -10.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
-		{ XMFLOAT4( 5.0f,  0.0f,   0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
-		{ XMFLOAT4( 5.0f,  0.0f, -10.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians( 90) },
-
-		// Back walls
-		{ XMFLOAT4( 0.0f,  0.0f,   5.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(  0) },
-
-		// Ceiling
-		{ XMFLOAT4( 0.0f,  5.0f,   0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
-		{ XMFLOAT4( 0.0f,  5.0f, -10.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMConvertToRadians(270) },
+	PlaneData Planes[2] = {
+		{ XMFLOAT4(0.0f, -5.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f),
+			XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 1, XMConvertToRadians(90) },
+		{ XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f),
+			XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 1, XMConvertToRadians(90) },
 	};
 };

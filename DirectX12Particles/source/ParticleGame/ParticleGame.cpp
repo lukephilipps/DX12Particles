@@ -66,7 +66,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, ContentLoaded(false)
 	, drawOffset(0)
 	, UseCompute(true)
-	, UsePostProcess(true)
+	, UsePostProcess(false)
 	, deltaTime(0)
 	, PressingW(false)
 	, PressingA(false)
@@ -94,7 +94,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
 	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);*/
 
-	CameraPosition = XMFLOAT4(0, 0, -10, 1);
+	CameraPosition = XMFLOAT4(0, -0.5, -20, 1);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -206,7 +206,7 @@ bool ParticleGame::LoadContent()
 
 	// Create descriptor heaps
 	{
-		DSVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+		DSVHeap = Application::Get().CreateDescriptorHeap(2, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 		DescriptorHeap = Application::Get().CreateDescriptorHeap(10 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 		RTVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
@@ -329,9 +329,10 @@ bool ParticleGame::LoadContent()
 	// Create PSO's
 	{
 		ComPtr<ID3DBlob> vertexParticleShader;
-		ComPtr<ID3DBlob> vertexWallsShader;
+		ComPtr<ID3DBlob> vertexPlaneShader;
 		ComPtr<ID3DBlob> vertexAABBShader;
 		ComPtr<ID3DBlob> pixelShader;
+		ComPtr<ID3DBlob> pixelPlaneShader;
 		ComPtr<ID3DBlob> pixelAABBShader;
 		ComPtr<ID3DBlob> computeEmitShader;
 		ComPtr<ID3DBlob> computeSimulateShader;
@@ -339,9 +340,10 @@ bool ParticleGame::LoadContent()
 		ComPtr<ID3DBlob> error;
 
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexParticle.cso").c_str(), &vertexParticleShader));
-		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexRoom.cso").c_str(), &vertexWallsShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexPlane.cso").c_str(), &vertexPlaneShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"VertexAABB.cso").c_str(), &vertexAABBShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"PixelParticle.cso").c_str(), &pixelShader));
+		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"PixelPlane.cso").c_str(), &pixelPlaneShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"PixelAABB.cso").c_str(), &pixelAABBShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeEmitter.cso").c_str(), &computeEmitShader));
 		ThrowIfFailed(D3DReadFileToBlob((assetPathString + L"ComputeSimulator.cso").c_str(), &computeSimulateShader));
@@ -383,7 +385,7 @@ bool ParticleGame::LoadContent()
 		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
 		renderPSS.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
 		renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
-		renderPSS.DSVFormat = DXGI_FORMAT_UNKNOWN;
+		renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
 		renderPSS.RTVFormats = rtvFormats;
 		renderPSS.Rasterizer = rasterizer;
 		renderPSS.BlendMode = blendMode;
@@ -404,13 +406,14 @@ bool ParticleGame::LoadContent()
 			blendMode.RenderTarget[0].BlendEnable = false;
 			renderPSS.BlendMode = blendMode;
 			renderPSS.DSVFormat = DXGI_FORMAT_D32_FLOAT;
-			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexWallsShader.Get());
+			renderPSS.VS = CD3DX12_SHADER_BYTECODE(vertexPlaneShader.Get());
+			renderPSS.PS = CD3DX12_SHADER_BYTECODE(pixelPlaneShader.Get());
 
 			D3D12_PIPELINE_STATE_STREAM_DESC psoDesc =
 			{
 				sizeof(RenderPipelineStateStream), &renderPSS
 			};
-			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&WallsRenderPSO)));
+			ThrowIfFailed(device->CreatePipelineState(&psoDesc, IID_PPV_ARGS(&PlaneRenderPSO)));
 		}
 
 		// Define AABB PSO
@@ -494,8 +497,9 @@ bool ParticleGame::LoadContent()
 		IndexBufferView.SizeInBytes = sizeof(Indices);
 	}
 
-	DescriptorSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	DescriptorSizeRTV = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	DescriptorSize = Application::Get().GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	DescriptorSizeRTV = Application::Get().GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
+	DescriptorSizeDSV = Application::Get().GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
 	ComPtr<ID3D12Resource> intermediateParticleBuffer;
 	ComPtr<ID3D12Resource> intermediateAlive0Buffer;
@@ -505,7 +509,7 @@ bool ParticleGame::LoadContent()
 	ComPtr<ID3D12Resource> intermediateStagedParticleBuffer;
 	ComPtr<ID3D12Resource> intermediateTilesTextureBuffer;
 	ComPtr<ID3D12Resource> intermediateWallsTextureBuffer;
-	ComPtr<ID3D12Resource> intermediateWallsBuffer;
+	ComPtr<ID3D12Resource> intermediatePlaneBuffer;
 
 	// Define descriptor heap
 	{
@@ -602,28 +606,28 @@ bool ParticleGame::LoadContent()
 		device->CreateShaderResourceView(TilesTexture.Get(), &srvDesc, descriptorHandle);
 		TransitionResource(commandList.Get(), TilesTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-		// Entry 9, Walls Texture
+		// Entry 9, Planes Texture
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateTextureResourceFromFile(commandList.Get(), &WallsTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
+		UpdateTextureResourceFromFile(commandList.Get(), &WallTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
 		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
 		srvDesc.Texture2D.PlaneSlice = 0;
-		device->CreateShaderResourceView(WallsTexture.Get(), &srvDesc, descriptorHandle);
-		TransitionResource(commandList.Get(), WallsTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+		device->CreateShaderResourceView(WallTexture.Get(), &srvDesc, descriptorHandle);
+		TransitionResource(commandList.Get(), WallTexture, D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
 
-		// Entry 10, Room orientation buffer
+		// Entry 10, Plane orientation buffer
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResource(commandList.Get(), &WallBuffer, &intermediateWallsBuffer, _countof(Walls), sizeof(WallOrientation), Walls);
+		UpdateBufferResource(commandList.Get(), &PlaneBuffer, &intermediatePlaneBuffer, _countof(Planes), sizeof(PlaneData), Planes);
 		D3D12_SHADER_RESOURCE_VIEW_DESC newDesc = {};
 		newDesc.Format = DXGI_FORMAT_UNKNOWN;
 		newDesc.ViewDimension = D3D12_SRV_DIMENSION_BUFFER;
 		newDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		newDesc.Buffer.NumElements = _countof(Walls);
-		newDesc.Buffer.StructureByteStride = sizeof(WallOrientation);
+		newDesc.Buffer.NumElements = _countof(Planes);
+		newDesc.Buffer.StructureByteStride = sizeof(PlaneData);
 		newDesc.Buffer.Flags = D3D12_BUFFER_SRV_FLAG_NONE;
-		device->CreateShaderResourceView(WallBuffer.Get(), &newDesc, descriptorHandle);
+		device->CreateShaderResourceView(PlaneBuffer.Get(), &newDesc, descriptorHandle);
 
 		// Entry 11, Post-processing texture
 		descriptorHandle.Offset(1, DescriptorSize);
@@ -713,6 +717,10 @@ void ParticleGame::ResizeDepthBuffer(int width, int height)
 		dsv.Flags = D3D12_DSV_FLAG_NONE;
 
 		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, DSVHeap->GetCPUDescriptorHandleForHeapStart());
+
+		dsv.Flags = D3D12_DSV_FLAG_READ_ONLY_DEPTH;
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(DSVHeap->GetCPUDescriptorHandleForHeapStart(), 1, DescriptorSizeDSV);
+		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, dsvHandle);
 
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 12, DescriptorSize);
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
@@ -888,15 +896,16 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->IASetIndexBuffer(&IndexBufferView);
 
 		// Render Room
-		commandList->SetPipelineState(WallsRenderPSO.Get());
+		commandList->SetPipelineState(PlaneRenderPSO.Get());
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
-		commandList->DrawIndexedInstanced(6, _countof(Walls), 0, 0, 0);
+		commandList->DrawIndexedInstanced(6, _countof(Planes), 0, 0, 0);
 
 		// Render Particles
-		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, nullptr);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(DSVHeap->GetCPUDescriptorHandleForHeapStart(), 1, DescriptorSizeDSV);
+		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, &dsvHandle);
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));

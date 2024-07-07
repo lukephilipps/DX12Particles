@@ -149,7 +149,10 @@
     <FxCompile Include="source\ParticleGame\VertexParticle.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
-    <FxCompile Include="source\ParticleGame\VertexRoom.hlsl">
+    <FxCompile Include="source\ParticleGame\VertexPlane.hlsl">
+      <Filter>source\ParticleGame</Filter>
+    </FxCompile>
+    <FxCompile Include="source\ParticleGame\PixelPlane.hlsl">
       <Filter>source\ParticleGame</Filter>
     </FxCompile>
   </ItemGroup>

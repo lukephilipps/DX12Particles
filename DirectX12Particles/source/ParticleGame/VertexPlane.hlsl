@@ -3,9 +3,12 @@ struct WallData
     float4 position;
     float4 axisOfRotation;
     float4 scale;
+    float4 color;
+    float4 uvMinMax;
+    float colorOverride;
     float rotation;
     
-    float buffer[51];
+    float buffer[42];
 };
 
 StructuredBuffer<WallData> Walls : register(t0);
