@@ -41,9 +41,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         uint width, height;
         DepthBuffer.GetDimensions(width, height);
         
-        float2 uv0 = id.xy / float2(width, height);
-        float2 uv1 = (id.xy + int2(1, 0)) / float2(width, height);
-        float2 uv2 = (id.xy + int2(0, 1)) / float2(width, height);
+        float2 uv0 = (id.xy + float2(0.5f, 0.5f)) / float2(width, height);
+        float2 uv1 = (id.xy + float2(1.5f, 0.5f)) / float2(width, height);
+        float2 uv2 = (id.xy + float2(0.5f, 1.5f)) / float2(width, height);
         
         float d0 = DepthBuffer.SampleLevel(PointSampler, uv0, 0).r;
         float d1 = DepthBuffer.SampleLevel(PointSampler, uv1, 0).r;
@@ -55,6 +55,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
 
         float3 normal = normalize(cross(P2 - P0, P1 - P0));
 
-        SceneCap[id.xy] = float4(normal, 1.0f);
+        SceneCap[id.xy] = float4(-normal, 1.0f);
     }
 }
