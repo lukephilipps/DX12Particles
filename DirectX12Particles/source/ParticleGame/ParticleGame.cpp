@@ -222,9 +222,9 @@ bool ParticleGame::LoadContent()
 
 		D3D12_STATIC_SAMPLER_DESC sampler = {};
 		sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_POINT;
-		sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
-		sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_BORDER;
+		sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+		sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
 		sampler.MipLODBias = 0;
 		sampler.MaxAnisotropy = 0;
 		sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
@@ -904,7 +904,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->DrawIndexedInstanced(6, _countof(Planes), 0, 0, 0);
 
 		// Render Particles
-		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(DSVHeap->GetCPUDescriptorHandleForHeapStart(), 1, DescriptorSizeDSV);
+		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv, 1, DescriptorSizeDSV);
 		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, &dsvHandle);
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));

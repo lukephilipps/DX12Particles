@@ -164,10 +164,12 @@ private:
 	ComPtr<ID3D12Resource> RenderTexture;
 	ComPtr<ID3D12Resource> PlaneBuffer;
 
-	PlaneData Planes[2] = {
-		{ XMFLOAT4(0.0f, -5.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f),
-			XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 1, XMConvertToRadians(90) },
-		{ XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f),
-			XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f), 1, XMConvertToRadians(90) },
+	PlaneData Planes[3] = {
+		{ XMFLOAT4(0.0f, -5.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
+			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 0.0f, XMConvertToRadians(90) },
+		{ XMFLOAT4(0.0f, -2.5f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
+			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 0.5f, XMConvertToRadians(90) },
+		{ XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.0f, 5.0f, 5.0f, 1.0f), XMFLOAT4(1.0f, 0.0f, 0.0f, 1.0f),
+			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) },
 	};
 };

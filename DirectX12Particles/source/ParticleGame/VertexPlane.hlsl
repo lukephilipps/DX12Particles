@@ -8,7 +8,7 @@ struct WallData
     float colorOverride;
     float rotation;
     
-    float buffer[42];
+    float padding[42];
 };
 
 StructuredBuffer<WallData> Walls : register(t0);
@@ -27,7 +27,9 @@ struct appdata
 
 struct v2f
 {
-    float2 UV : TEXCOORD;
+    float2 UV : TEXCOORD0;
+    float ColorOverride : TEXCOORD1;
+    float4 Color : COLOR;
     float4 Position : SV_Position;
 };
 
@@ -55,7 +57,9 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     WallData data = Walls[instanceID];
     
     o.Position = mul(P, mul(V, float4(mul(AngleAxis3x3(data.rotation, data.axisOfRotation.xyz), i.Position * data.scale.xyz), 0) + data.position));
-    o.UV = i.UV;
+    o.UV = lerp(data.uvMinMax.xz, data.uvMinMax.yw, i.UV);
+    o.Color = data.color;
+    o.ColorOverride = data.colorOverride;
     
     return o;
 }
