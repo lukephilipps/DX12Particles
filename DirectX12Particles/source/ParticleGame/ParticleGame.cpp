@@ -78,8 +78,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.particleLifetime = 1.5f;
 	CSRootConstants.emitCount = 3;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-0.5f, -3, -0.5f, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4( 0.5f, -2,  0.5f, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-0.5f, 1, -0.5f, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 0.5f, 1,  0.5f, 0);
 	CSRootConstants.emitVelocityMin = XMFLOAT4(-0.5f, 0.8f, -0.5f, 0);
 	CSRootConstants.emitVelocityMax = XMFLOAT4( 0.5f, 1.0f,  0.5f, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.15f, 3.8f, -0.15f, 0);
@@ -94,7 +94,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
 	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);*/
 
-	CameraPosition = XMFLOAT4(0, -0.5, -20, 1);
+	CameraPosition = XMFLOAT4(0, 5, -15, 1);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -807,7 +807,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
 
 		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
-		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 4, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
 		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
