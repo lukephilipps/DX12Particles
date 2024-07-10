@@ -90,6 +90,7 @@ private:
 		int windowWidth;
 		int windowHeight;
 		XMMATRIX invVP;
+		UINT noiseSize;
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;
@@ -163,6 +164,12 @@ private:
 	ComPtr<ID3D12Resource> WallTexture;
 	ComPtr<ID3D12Resource> RenderTexture;
 	ComPtr<ID3D12Resource> PlaneBuffer;
+
+	// SSAO vars
+	ComPtr<ID3D12Resource> KernelTexture;
+	ComPtr<ID3D12Resource> NoiseTexture;
+	static const UINT KernelSize = 16;
+	static const UINT NoiseSize = 4;
 
 	PlaneData Planes[14] = {
 		// Bordering walls

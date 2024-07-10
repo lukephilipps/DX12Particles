@@ -87,12 +87,19 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.particleStartScale = 0.30f;
 	CSRootConstants.particleEndScale = 0.05f;
 
-	/*CSRootConstants.emitAABBMin = XMFLOAT4(-10, 0, 0, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4(10, 10, 20, 0);
+	/*CSRootConstants.particleLifetime = 3.0f;
+	CSRootConstants.emitCount = 2;
+	CSRootConstants.maxParticleCount = MaxParticleCount;
+	CSRootConstants.emitAABBMin = XMFLOAT4(-6, 0, -7, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4(6, 10, 11, 0);
 	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, -1, -1, 0);
-	CSRootConstants.emitVelocityMax = XMFLOAT4(1, 1, 1, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4(0, 0, 1, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
-	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);*/
+	CSRootConstants.emitAccelerationMax = XMFLOAT4(0, 0, 0, 0);
+	CSRootConstants.particleStartScale = 0.10f;
+	CSRootConstants.particleEndScale = 0.01f;*/
+
+	PPRootConstants.noiseSize = NoiseSize;
 
 	CameraPosition = XMFLOAT4(0, 5, -15, 1);
 }
@@ -207,7 +214,7 @@ bool ParticleGame::LoadContent()
 	// Create descriptor heaps
 	{
 		DSVHeap = Application::Get().CreateDescriptorHeap(2, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
-		DescriptorHeap = Application::Get().CreateDescriptorHeap(10 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
+		DescriptorHeap = Application::Get().CreateDescriptorHeap(12 + Window::BufferCount, D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV, D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE);
 		RTVHeap = Application::Get().CreateDescriptorHeap(1, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 	}
 
@@ -306,7 +313,7 @@ bool ParticleGame::LoadContent()
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 postProcessRanges[2];
 			postProcessRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
-			postProcessRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
+			postProcessRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 			CD3DX12_ROOT_PARAMETER1 postProcessRootParameters[2];
 			postProcessRootParameters[0].InitAsDescriptorTable(_countof(postProcessRanges), postProcessRanges);
@@ -378,8 +385,8 @@ bool ParticleGame::LoadContent()
 		blendMode.RenderTarget[0].BlendEnable = true;
 		blendMode.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
 		blendMode.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
-		blendMode.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
-		blendMode.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+		blendMode.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
+		blendMode.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_DEST_ALPHA;
 
 		renderPSS.pRootSignature = RenderRS.Get();
 		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
@@ -510,14 +517,19 @@ bool ParticleGame::LoadContent()
 	ComPtr<ID3D12Resource> intermediateTilesTextureBuffer;
 	ComPtr<ID3D12Resource> intermediateWallsTextureBuffer;
 	ComPtr<ID3D12Resource> intermediatePlaneBuffer;
+	ComPtr<ID3D12Resource> intermediateSSAOKernelBuffer;
+	ComPtr<ID3D12Resource> intermediateSSAOTexBuffer;
 
 	// Define descriptor heap
 	{
+		// Breaking these up might be a good idea as to not allocate all this space at once
 		Particle particleData[MaxParticleCount];
 		Particle stagedParticleData[MaxParticleCount * Window::BufferCount];
 		UINT particleAliveIndices[MaxParticleCount + 1];
 		UINT particleDeadIndices[MaxParticleCount];
 		UINT deadCounter[1] = { MaxParticleCount };
+		XMFLOAT4 ssaoKernel[KernelSize];
+		XMFLOAT4 ssaoNoise[NoiseSize * NoiseSize];
 
 		for (UINT n = 0; n < MaxParticleCount; n++)
 		{
@@ -533,6 +545,34 @@ bool ParticleGame::LoadContent()
 				stagedParticleData[index] = {};
 				++index;
 			}
+		}
+
+		//std::srand(time(NULL)); // Re-seed RNG
+		for (UINT n = 0; n < KernelSize; ++n)
+		{
+			const double x = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
+			const double y = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
+			const double z = (static_cast<double>(std::rand()) / RAND_MAX);
+			XMFLOAT4 float4 = XMFLOAT4(x, y, z, 0);
+			XMVECTOR vector = XMLoadFloat4(&float4);
+			XMVector4Normalize(vector);
+
+			float scale = n / static_cast<float>(KernelSize);
+			scale = std::lerp(0.1f, 1.0f, scale * scale);
+			XMVectorScale(vector, scale);
+			XMStoreFloat4(&ssaoNoise[n], vector);
+		}
+
+		for (UINT n = 0; n < NoiseSize * NoiseSize; ++n)
+		{
+			const double x = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
+			const double y = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
+			XMFLOAT4 float4 = XMFLOAT4(x, y, 0, 0);
+			XMVECTOR vector = XMLoadFloat4(&float4);
+			XMVector4Normalize(vector);
+			XMStoreFloat4(&ssaoNoise[n], vector);
+			ssaoNoise[n].x = ssaoNoise[n].x / 2 + 0.5f;
+			ssaoNoise[n].y = ssaoNoise[n].y / 2 + 0.5f;
 		}
 
 		particleAliveIndices[MaxParticleCount] = 0;
@@ -647,13 +687,47 @@ bool ParticleGame::LoadContent()
 		device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
 		device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
 
-		// UAV counter reset (For AliveBuffer1)
-		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
+		// Entry 13, SSAO sampling kernel
+		descriptorHandle.Offset(2, DescriptorSize);
+		newDesc.Buffer.NumElements = KernelSize;
+		newDesc.Buffer.StructureByteStride = sizeof(XMFLOAT4);
+		UpdateBufferResource(commandList.Get(), &KernelTexture, &intermediateSSAOKernelBuffer, KernelSize, sizeof(XMFLOAT4), ssaoKernel);
+		device->CreateShaderResourceView(KernelTexture.Get(), &newDesc, descriptorHandle);
+
+		// Entry 14, SSAO random tex
+		descriptorHandle.Offset(1, DescriptorSize);
+		srvDesc.Format = DXGI_FORMAT_UNKNOWN;
+		CD3DX12_RESOURCE_DESC ssaoRandomDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R32G32B32A32_FLOAT, NoiseSize, NoiseSize, 1, 1);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&ssaoRandomDesc,
+			D3D12_RESOURCE_STATE_COMMON,
+			nullptr,
+			IID_PPV_ARGS(&NoiseTexture)));
+		const UINT64 uploadBufferSize = GetRequiredIntermediateSize(NoiseTexture.Get(), 0, 1) + D3D12_DEFAULT_RESOURCE_PLACEMENT_ALIGNMENT;
 		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+		CD3DX12_RESOURCE_DESC uploadBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
 		ThrowIfFailed(device->CreateCommittedResource(
 			&uploadHeapProperties,
 			D3D12_HEAP_FLAG_NONE,
-			&bufferDesc,
+			&uploadBufferDesc,
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&intermediateSSAOTexBuffer)));
+		D3D12_SUBRESOURCE_DATA textureData = {};
+		textureData.pData = ssaoNoise;
+		textureData.RowPitch = NoiseSize * sizeof(XMFLOAT4);
+		textureData.SlicePitch = textureData.RowPitch * NoiseSize;
+		UpdateSubresources(commandList.Get(), NoiseTexture.Get(), intermediateSSAOTexBuffer.Get(), 0, 0, 1, &textureData);
+		device->CreateShaderResourceView(NoiseTexture.Get(), &srvDesc, descriptorHandle);
+
+		// UAV counter reset (For AliveBuffer1)
+		CD3DX12_RESOURCE_DESC counterBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(sizeof(UINT));
+		ThrowIfFailed(device->CreateCommittedResource(
+			&uploadHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&counterBufferDesc,
 			D3D12_RESOURCE_STATE_GENERIC_READ,
 			nullptr,
 			IID_PPV_ARGS(&UAVCounterReset)));
