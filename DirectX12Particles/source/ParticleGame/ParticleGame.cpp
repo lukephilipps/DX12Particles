@@ -99,7 +99,9 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.particleStartScale = 0.10f;
 	CSRootConstants.particleEndScale = 0.01f;*/
 
+	PPRootConstants.kernelSize = KernelSize;
 	PPRootConstants.noiseSize = NoiseSize;
+	PPRootConstants.kernelRadius = 3.0f;
 
 	CameraPosition = XMFLOAT4(0, 5, -15, 1);
 }
@@ -560,7 +562,7 @@ bool ParticleGame::LoadContent()
 			float scale = n / static_cast<float>(KernelSize);
 			scale = std::lerp(0.1f, 1.0f, scale * scale);
 			XMVectorScale(vector, scale);
-			XMStoreFloat4(&ssaoNoise[n], vector);
+			XMStoreFloat4(&ssaoKernel[n], vector);
 		}
 
 		for (UINT n = 0; n < NoiseSize * NoiseSize; ++n)
@@ -892,6 +894,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		VSRootConstants.P = projectionMatrix;
 
 		PPRootConstants.invVP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
+		PPRootConstants.V = viewMatrix;
+		PPRootConstants.P = projectionMatrix;
 
 		CSRootConstants.deltaTime = deltaTime;
 	}
@@ -977,6 +981,16 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, _countof(Planes), 0, 0, 0);
 
+		// SSAO Post-processing on room
+		if (UsePostProcess)
+		{
+			commandList->SetPipelineState(PostProcessPSO.Get());
+			commandList->SetComputeRootSignature(PostProcessRS.Get());
+			commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
+			commandList->SetComputeRoot32BitConstants(1, sizeof(PPRootConstants) / 4, reinterpret_cast<void*>(&PPRootConstants), 0);
+			commandList->Dispatch(static_cast<UINT>(ceil(PPRootConstants.windowWidth / 8.0f)), static_cast<UINT>(ceil(PPRootConstants.windowHeight / 8.0f)), 1);
+		}
+
 		// Render Particles
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv, 1, DescriptorSizeDSV);
 		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, &dsvHandle);
@@ -991,16 +1005,6 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 		commandList->SetGraphicsRoot32BitConstants(1, sizeof(CSRootConstants) / 4, reinterpret_cast<void*>(&CSRootConstants), 0);
 		commandList->DrawIndexedInstanced(_countof(Indices), 1, 0, 4, 0);*/
-
-		// Post-processing
-		if (UsePostProcess)
-		{
-			commandList->SetPipelineState(PostProcessPSO.Get());
-			commandList->SetComputeRootSignature(PostProcessRS.Get());
-			commandList->SetComputeRootDescriptorTable(0, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 11, DescriptorSize));
-			commandList->SetComputeRoot32BitConstants(1, sizeof(PPRootConstants) / 4, reinterpret_cast<void*>(&PPRootConstants), 0);
-			commandList->Dispatch(static_cast<UINT>(ceil(PPRootConstants.windowWidth / 8.0f)), static_cast<UINT>(ceil(PPRootConstants.windowHeight / 8.0f)), 1);
-		}
 
 		TransitionResource(commandList, RenderTexture, D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
 		TransitionResource(commandList, backBuffer, D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST);

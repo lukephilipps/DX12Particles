@@ -90,7 +90,11 @@ private:
 		int windowWidth;
 		int windowHeight;
 		XMMATRIX invVP;
+		XMMATRIX V;
+		XMMATRIX P;
+		UINT kernelSize;
 		UINT noiseSize;
+		float kernelRadius;
 	};
 
 	static const UINT ComputeThreadGroupSize = 128;
@@ -168,7 +172,7 @@ private:
 	// SSAO vars
 	ComPtr<ID3D12Resource> KernelTexture;
 	ComPtr<ID3D12Resource> NoiseTexture;
-	static const UINT KernelSize = 16;
+	static const UINT KernelSize = 32;
 	static const UINT NoiseSize = 4;
 
 	PlaneData Planes[14] = {

@@ -2,7 +2,11 @@ cbuffer RootConstants : register(b0)
 {
     int2 WindowDimensions;
     matrix InvVP;
-    uint noiseSize;
+    matrix V;
+    matrix P;
+    uint KernelSize;
+    uint NoiseSize;
+    float KernelRadius;
 };
 
 // Scene tex and depth buffer
@@ -51,12 +55,36 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         float3 P2 = reconstructPosition(uv2, d2, InvVP);
 
         float3 normal = normalize(cross(P2 - P0, P1 - P0));
+        float3 randomVector = SSAONoise.SampleLevel(PointSampler, uv0 * float2(width / NoiseSize, height / NoiseSize), 0).xyz * 2.0f - 1.0f;
+        //float3 randomVector = SSAONoise.SampleLevel(PointSampler, uv0 * float2(width / NoiseSize, height / NoiseSize), 0).xyz;
+        //randomVector.xy = randomVector.xy * 2.0f - 1.0f;
+        float3 tangent = normalize(randomVector - normal * dot(randomVector, normal));
+        float3 bitangent = cross(normal, tangent);
+        float3x3 tbn = float3x3(tangent, bitangent, normal);
+        
+        float occlusion = 0.0f;
+        for (int i = 0; i < KernelSize; ++i)
+        {
+            float3 sample = mul(tbn, SSAOKernel[i].xyz);
+            if (dot(sample, normal) < 0.15)
+                continue;
+            sample = mul(sample, KernelRadius) + P0;
 
-        SceneCap[id.xy] = float4(-normal * .5 + .5, 1.0f);
+            float4 offset = mul(P, mul(V, float4(sample, 1.0f)));
+            //offset = mul(P, offset);
+            offset.xy /= offset.w;
+            offset.xy = offset.xy * 0.5f + 0.5f;
+            offset.y = 1 - offset.y;
+            
+            float sampleDepth = DepthBuffer.SampleLevel(PointSampler, offset.xy, 0).r;
+            
+            float rangeCheck = abs(d0 - sampleDepth) < KernelRadius ? 1.0f : 0.0f;
+            occlusion += (sampleDepth <= d0 ? 1.0f : 0.0f) * rangeCheck;
+        }
         
-        float3 randomVector = SSAONoise.SampleLevel(PointSampler, uv0 * float2(width / noiseSize, height / noiseSize), 0).xyz;
+        SceneCap[id.xy] = 1.0f - (occlusion / KernelSize);
         
-        //float2 uvextra = uv0 * float2(width / noiseSize, height / noiseSize);
-        //SceneCap[id.xy] = SSAONoise.SampleLevel(PointSampler, uvextra, 0);
+        //SceneCap[id.xy] = float4(normal * .5 + .5, 1.0f);
+        //SceneCap[id.xy] = float4(randomVector, 1.0f);
     }
 }
