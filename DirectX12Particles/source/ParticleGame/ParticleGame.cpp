@@ -101,7 +101,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 
 	PPRootConstants.kernelSize = KernelSize;
 	PPRootConstants.noiseSize = NoiseSize;
-	PPRootConstants.kernelRadius = 3.0f;
+	PPRootConstants.kernelRadius = 1.0f;
 
 	CameraPosition = XMFLOAT4(0, 5, -15, 1);
 }
