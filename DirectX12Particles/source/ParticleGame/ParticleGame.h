@@ -89,8 +89,8 @@ private:
 	{
 		int windowWidth;
 		int windowHeight;
-		XMMATRIX invVP;
-		XMMATRIX V;
+		XMMATRIX invP;
+		XMMATRIX invV;
 		XMMATRIX P;
 		UINT kernelSize;
 		UINT noiseSize;
