@@ -557,11 +557,11 @@ bool ParticleGame::LoadContent()
 			const double z = (static_cast<double>(std::rand()) / RAND_MAX);
 			XMFLOAT4 float4 = XMFLOAT4(x, y, z, 0);
 			XMVECTOR vector = XMLoadFloat4(&float4);
-			XMVector4Normalize(vector);
+			vector = XMVector4Normalize(vector);
 
 			float scale = n / static_cast<float>(KernelSize);
 			scale = std::lerp(0.1f, 1.0f, scale * scale);
-			XMVectorScale(vector, scale);
+			vector = XMVectorScale(vector, scale);
 			XMStoreFloat4(&ssaoKernel[n], vector);
 		}
 
@@ -571,7 +571,7 @@ bool ParticleGame::LoadContent()
 			const double y = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
 			XMFLOAT4 float4 = XMFLOAT4(x, y, 0, 0);
 			XMVECTOR vector = XMLoadFloat4(&float4);
-			XMVector4Normalize(vector);
+			vector = XMVector4Normalize(vector);
 			XMStoreFloat4(&ssaoNoise[n], vector);
 		}
 
@@ -637,7 +637,7 @@ bool ParticleGame::LoadContent()
 
 		// Entry 8, Particle Texture
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"brett.dds");
+		UpdateTextureResourceFromFile(commandList.Get(), &TilesTexture, &intermediateTilesTextureBuffer, assetPathString + L"Particle.dds");
 		srvDesc.Format = DXGI_FORMAT_BC3_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
@@ -648,8 +648,8 @@ bool ParticleGame::LoadContent()
 
 		// Entry 9, Planes Texture
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateTextureResourceFromFile(commandList.Get(), &WallTexture, &intermediateWallsTextureBuffer, assetPathString + L"brett.dds");
-		srvDesc.Format = DXGI_FORMAT_BC3_UNORM;
+		UpdateTextureResourceFromFile(commandList.Get(), &WallTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
+		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
@@ -881,7 +881,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
 
 		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
-		const XMVECTOR focusPoint = XMVectorSet(0, 4, 0, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 5, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
 		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
@@ -891,8 +891,8 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		VSRootConstants.V = viewMatrix;
 		VSRootConstants.P = projectionMatrix;
 
-		PPRootConstants.invP = XMMatrixInverse(nullptr, projectionMatrix);
-		PPRootConstants.invV = XMMatrixInverse(nullptr, viewMatrix);
+		PPRootConstants.invP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
+		PPRootConstants.invV = XMMatrixMultiply(viewMatrix, projectionMatrix);
 		PPRootConstants.P = projectionMatrix;
 
 		CSRootConstants.deltaTime = deltaTime;
