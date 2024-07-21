@@ -881,18 +881,20 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
 
 		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
-		const XMVECTOR focusPoint = XMVectorSet(0, 5, 0, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 5, 5, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
 		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
 		float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
-		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 0.1f, 100.0f);
+		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 2.0f, 30.0f);
 
 		VSRootConstants.V = viewMatrix;
 		VSRootConstants.P = projectionMatrix;
 
 		PPRootConstants.invP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
+		//PPRootConstants.invP = XMMatrixInverse(nullptr, projectionMatrix);
 		PPRootConstants.invV = XMMatrixMultiply(viewMatrix, projectionMatrix);
+		//PPRootConstants.invV = projectionMatrix;
 		PPRootConstants.P = projectionMatrix;
 
 		CSRootConstants.deltaTime = deltaTime;

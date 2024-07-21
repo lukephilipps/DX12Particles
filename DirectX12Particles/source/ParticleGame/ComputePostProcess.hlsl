@@ -21,8 +21,8 @@ SamplerState PointSampler : register(s0);
 
 float ReconstructDepth(in float z)
 {
-    float nearPlane = 0.1f;
-    float farPlane = 100.0f;
+    float nearPlane = 2.0f;
+    float farPlane = 30.0f;
     return (2.0f * nearPlane) / (farPlane + nearPlane - z * (farPlane - nearPlane));
 }
 
@@ -56,6 +56,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         float2 uv0 = (id.xy + float2(0.0f, 0.0f)) / float2(width, height);
         float2 uv1 = (id.xy + float2(1.0f, 0.0f)) / float2(width, height);
         float2 uv2 = (id.xy + float2(0.0f, 1.0f)) / float2(width, height);
+        
+        //SceneCap[id.xy] = 1 - DepthBuffer.SampleLevel(PointSampler, uv0, 0).r;
+        //return;
         
         float d0 = DepthBuffer.Load(id, 0).r;
         float d1 = DepthBuffer.Load(id + uint3(1, 0, 0), 0).r;
@@ -94,6 +97,12 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         float3x3 tbn = float3x3(tangent, bitangent, normal);
         //tbn = transpose(tbn);
         
+        //float4 offset = mul(InvV, float4(WP0, 1.0f));
+        //offset.xy /= offset.w;
+        //offset.xy = offset.xy * float2(0.5f, -0.5f) + 0.5f;
+        //SceneCap[id.xy] = SceneCap.Load(uint3(width * offset.x, height * offset.y, 0));
+        //return;
+        
         float occlusion = 0.0f;
         for (int i = 0; i < KernelSize; ++i)
         {
@@ -102,15 +111,25 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             //    continue;
             
             float3 kernelSample = mul(SSAOKernel[i].xyz, tbn);
+            
+            //SceneCap[id.xy] = float4(SSAOKernel[i].xyz * 0.5f + 0.5f, 1);
+            //SceneCap[id.xy] = float4(kernelSample * 0.5f + 0.5f, 1);
+            //return;
+            
             kernelSample = KernelRadius * kernelSample + WP0;
             
             //kernelSample = mul((float3x3)InvV, kernelSample);
 
             float4 offset = float4(kernelSample, 1.0f);
+            
             //offset.z = -offset.z;
             offset = mul(InvV, offset);
             offset.xy /= offset.w;
             offset.xy = offset.xy * float2(0.5f, -0.5f) + 0.5f;
+            
+            //SceneCap[id.xy] = float4(offset.xy, 0, 0);
+            //return;
+            
             
             //if (any(offset.xy > 1.0f) || any(offset.xy < 0.0f))
             //    return;
@@ -126,6 +145,10 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             
             //float depth = ReconstructDepth(DepthBuffer.SampleLevel(PointSampler, offset.xy, 0).r);
             float depth = DepthBuffer.SampleLevel(PointSampler, offset.xy, 0).r;
+            //float depth = DepthBuffer.Load(uint3(width * offset.x, height * offset.y, 0), 0).r;
+            
+            //SceneCap[id.xy] = 1 - d0;
+            //return;
             
             //float rangeCheck = abs(d0 - depth) < KernelRadius ? 1.0f : 0.0f;
             //occlusion += (depth <= offset.z ? 1.0f : 0.0f);
@@ -133,8 +156,8 @@ void CSMain(uint3 id : SV_DispatchThreadID)
         }
         
         //SceneCap[id.xy] -= (1.0f - (occlusion / KernelSize)) / 12;
-        SceneCap[id.xy] = 1.0f - (occlusion / KernelSize);
-        //SceneCap[id.xy] = lerp(float4(0.1f, 0.1f, 0.1f, 0.1f), SceneCap[id.xy], 1.0f - (occlusion / KernelSize));
+        //SceneCap[id.xy] = 1.0f - (occlusion / KernelSize);
+        SceneCap[id.xy] = lerp(float4(0.1f, 0.1f, 0.1f, 0.1f), SceneCap[id.xy], 1.0f - (occlusion / KernelSize));
         
         //SceneCap[id.xy] = float4(normal, 1.0f);
         //SceneCap[id.xy] = float4(normal * .5 + .5, 1.0f);
