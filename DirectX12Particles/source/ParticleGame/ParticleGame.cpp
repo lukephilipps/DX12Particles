@@ -79,8 +79,8 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	CSRootConstants.particleLifetime = 35.0f;
 	CSRootConstants.emitCount = 100;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-9.0f, -4.0f, -5.0f, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4( 9.0f,  4.0f,  5.0f, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-9.0f, -9.0f, -9.0f, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 9.0f,  9.0f,  9.0f, 0);
 	CSRootConstants.emitVelocityMin = XMFLOAT4(-1.0f, -1.0f, -3.0f, 0);
 	CSRootConstants.emitVelocityMax = XMFLOAT4( 1.0f,  1.0f,  3.0f, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.15f, 3.8f, -0.15f, 0);

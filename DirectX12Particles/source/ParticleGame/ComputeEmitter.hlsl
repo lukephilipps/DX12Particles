@@ -21,6 +21,7 @@ struct Particle
     float4 position;
     float4 velocity;
     float4 acceleration;
+    float4 color;
     float lifeTimeLeft;
     float scale;
 };
@@ -68,6 +69,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         newParticle.acceleration = lerp(emitAccelerationMin, emitAccelerationMax, float4(randomValue2, randomValue0, randomValue1, 0));
         newParticle.lifeTimeLeft = particleLifetime;
         newParticle.scale = particleStartScale;
+        newParticle.color = float4(randomValue0, randomValue1, randomValue2, 1);
         
         Particles[particleIndex] = newParticle;
         AliveIndices0.Append(particleIndex);

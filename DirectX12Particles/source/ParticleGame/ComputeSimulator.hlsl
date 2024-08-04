@@ -21,6 +21,7 @@ struct Particle
     float4 position;
     float4 velocity;
     float4 acceleration;
+    float4 color;
     float lifeTimeLeft;
     float scale;
 };

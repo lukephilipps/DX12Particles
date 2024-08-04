@@ -42,6 +42,7 @@ private:
 		XMFLOAT4 position;
 		XMFLOAT4 velocity;
 		XMFLOAT4 acceleration;
+		XMFLOAT4 color;
 		float lifeTimeLeft;
 		float size;
 	};
@@ -139,7 +140,7 @@ private:
 	bool UsePostProcess;
 	bool RenderRoom;
 
-	static const UINT MaxParticleCount = 100;
+	static const UINT MaxParticleCount = 10000;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 	ComPtr<ID3D12Resource> ParticleBuffer;
 	ComPtr<ID3D12Resource> AliveIndexList0;

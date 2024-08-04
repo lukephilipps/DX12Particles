@@ -3,6 +3,7 @@ struct ParticleData
     float4 position;
     float4 velocity;
     float4 acceleration;
+    float4 color;
     float lifeTimeLeft;
     float scale;
 };
@@ -23,7 +24,8 @@ struct appdata
 
 struct v2f
 {
-    float2 UV: TEXCOORD;
+    float2 UV: TEXCOORD0;
+    float4 color : TEXCOORD1;
     float4 Position : SV_Position;
 };
 
@@ -34,6 +36,7 @@ v2f VSMain(appdata i, uint instanceID : SV_InstanceID)
     
     o.Position = mul(P, mul(V, data.position) + float4(i.Position.x, i.Position.y, 0, 0) * float4(data.scale, data.scale, 1, 1));
     o.UV = i.UV;
+    o.color = data.color;
     
     if (data.lifeTimeLeft <= 0) o.Position = float4(0, 0, 0, 0);
     
