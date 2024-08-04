@@ -23,8 +23,6 @@ struct Particle
     float4 acceleration;
     float lifeTimeLeft;
     float scale;
-
-    float padding[50];
 };
 
 RWStructuredBuffer<Particle> Particles : register(u0);
@@ -54,7 +52,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         uint particleIndex = DeadIndices.Consume();
         
         float randomValue0 = random(float2(index, particleIndex));
-        float randomValue1 = random(float2(particleIndex * 4.5, index));
+        float randomValue1 = random(float2(particleIndex * deltaTime, index));
         float randomValue2 = random(float2(particleIndex + realEmitCount, deltaTime));
         
         Particle newParticle;

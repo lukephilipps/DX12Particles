@@ -13,7 +13,7 @@ struct VertexTexCoord
 	XMFLOAT2 TexCoord;
 };
 
-static VertexTexCoord Vertices[28] = {
+static VertexTexCoord Vertices[4] = {
 	// Billboard
 	{ XMFLOAT3(-1.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
@@ -21,7 +21,7 @@ static VertexTexCoord Vertices[28] = {
 	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
 
 	// Box faces (made some for each pair of sides for UV cords)
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
+	/*{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
@@ -44,16 +44,16 @@ static VertexTexCoord Vertices[28] = {
 	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) }
+	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) }*/
 };
 
-static WORD Indices[36] = {
+static WORD Indices[6] = {
 	0, 1, 2, 0, 2, 3,
-	4, 6, 5, 4, 7, 6,
+	/*4, 6, 5, 4, 7, 6,
 	12, 13, 9, 12, 9, 8,
 	11, 10, 14, 11, 14, 15,
 	17, 21, 22, 17, 22, 18,
-	20, 16, 19, 20, 19, 23
+	20, 16, 19, 20, 19, 23*/
 };
 
 const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
@@ -67,6 +67,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, drawOffset(0)
 	, UseCompute(false)
 	, UsePostProcess(false)
+	, RenderRoom(false)
 	, deltaTime(0)
 	, PressingW(false)
 	, PressingA(false)
@@ -75,17 +76,17 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 1.5f;
-	CSRootConstants.emitCount = 3;
+	CSRootConstants.particleLifetime = 35.0f;
+	CSRootConstants.emitCount = 100;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-0.5f, 1, -0.5f, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4( 0.5f, 1,  0.5f, 0);
-	CSRootConstants.emitVelocityMin = XMFLOAT4(-0.5f, 0.8f, -0.5f, 0);
-	CSRootConstants.emitVelocityMax = XMFLOAT4( 0.5f, 1.0f,  0.5f, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-9.0f, -4.0f, -5.0f, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 9.0f,  4.0f,  5.0f, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-1.0f, -1.0f, -3.0f, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4( 1.0f,  1.0f,  3.0f, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.15f, 3.8f, -0.15f, 0);
 	CSRootConstants.emitAccelerationMax = XMFLOAT4( 0.15f, 4.8f,  0.15f, 0);
 	CSRootConstants.particleStartScale = 0.30f;
-	CSRootConstants.particleEndScale = 0.05f;
+	CSRootConstants.particleEndScale = 0.30f;
 
 	/*CSRootConstants.particleLifetime = 3.0f;
 	CSRootConstants.emitCount = 2;
@@ -103,7 +104,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	PPRootConstants.noiseSize = NoiseSize;
 	PPRootConstants.kernelRadius = 1.0f;
 
-	CameraPosition = XMFLOAT4(0, 5, -15, 1);
+	CameraPosition = XMFLOAT4(0, 0, -15, 1);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -143,45 +144,6 @@ void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> comma
 		subresourceData.RowPitch = bufferSize;
 		subresourceData.SlicePitch = subresourceData.RowPitch;
 
-		UpdateSubresources(commandList.Get(), *pDestinationResource, *pIntermediateResource, 0, 0, 1, &subresourceData);
-	}
-}
-
-void ParticleGame::UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
-	size_t bufferSize, const void* bufferData)
-{
-	auto device = Application::Get().GetDevice();
-
-	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize + sizeof(UINT), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
-
-	// Create a committed resource in GPU mem
-	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	ThrowIfFailed(device->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&bufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(pDestinationResource)));
-
-	// Create a committed resource for the upload
-	if (bufferData)
-	{
-		bufferDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-		CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-		ThrowIfFailed(device->CreateCommittedResource(
-			&uploadHeapProperties,
-			D3D12_HEAP_FLAG_NONE,
-			&bufferDesc,
-			D3D12_RESOURCE_STATE_GENERIC_READ,
-			nullptr,
-			IID_PPV_ARGS(pIntermediateResource)));
-
-		D3D12_SUBRESOURCE_DATA subresourceData = {};
-		subresourceData.pData = bufferData;
-		subresourceData.RowPitch = bufferSize;
-		subresourceData.SlicePitch = subresourceData.RowPitch;
-		
 		UpdateSubresources(commandList.Get(), *pDestinationResource, *pIntermediateResource, 0, 0, 1, &subresourceData);
 	}
 }
@@ -281,7 +243,7 @@ bool ParticleGame::LoadContent()
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 emitRanges[2];
 			emitRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
-			emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			emitRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 			CD3DX12_ROOT_PARAMETER1 emitRootParameters[2];
 			emitRootParameters[0].InitAsDescriptorTable(_countof(emitRanges), emitRanges);
@@ -298,7 +260,7 @@ bool ParticleGame::LoadContent()
 		{
 			CD3DX12_DESCRIPTOR_RANGE1 simulateRanges[2];
 			simulateRanges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 4, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
-			simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+			simulateRanges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_VOLATILE);
 
 			CD3DX12_ROOT_PARAMETER1 simulateRootParameters[2];
 			simulateRootParameters[0].InitAsDescriptorTable(_countof(simulateRanges), simulateRanges);
@@ -527,7 +489,7 @@ bool ParticleGame::LoadContent()
 		// Breaking these up might be a good idea as to not allocate all this space at once
 		Particle particleData[MaxParticleCount];
 		Particle stagedParticleData[MaxParticleCount * Window::BufferCount];
-		UINT particleAliveIndices[MaxParticleCount + 1];
+		UINT particleAliveIndices[MaxParticleCount];
 		UINT particleDeadIndices[MaxParticleCount];
 		UINT deadCounter[1] = { MaxParticleCount };
 		XMFLOAT4 ssaoKernel[KernelSize];
@@ -536,6 +498,8 @@ bool ParticleGame::LoadContent()
 		for (UINT n = 0; n < MaxParticleCount; n++)
 		{
 			particleData[n] = {};
+			//particleData[n].lifeTimeLeft = FLT_MAX;
+			particleAliveIndices[n] = n;
 			particleDeadIndices[n] = n;
 		}
 
@@ -575,8 +539,6 @@ bool ParticleGame::LoadContent()
 			XMStoreFloat4(&ssaoNoise[n], vector);
 		}
 
-		particleAliveIndices[MaxParticleCount] = 0;
-
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSize);
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
 
@@ -594,14 +556,28 @@ bool ParticleGame::LoadContent()
 
 		// Entry 1, Alive particle index buffer 0
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList0, &intermediateAlive0Buffer, ParticleBufferCounterOffset, particleAliveIndices);
 		uavDesc.Buffer.StructureByteStride = sizeof(UINT);
 		uavDesc.Buffer.CounterOffsetInBytes = ParticleBufferCounterOffset;
+		CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(ParticleBufferCounterOffset + sizeof(UINT), D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS);
+		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_COPY_DEST,
+			nullptr,
+			IID_PPV_ARGS(&AliveIndexList0)));
 		device->CreateUnorderedAccessView(AliveIndexList0.Get(), AliveIndexList0.Get(), &uavDesc, descriptorHandle);
 
 		// Entry 2, Alive particle index buffer 1
 		descriptorHandle.Offset(1, DescriptorSize);
-		UpdateBufferResourceWithCounter(commandList.Get(), &AliveIndexList1, &intermediateAlive1Buffer, ParticleBufferCounterOffset, particleAliveIndices);
+		ThrowIfFailed(device->CreateCommittedResource(
+			&defaultHeapProperties,
+			D3D12_HEAP_FLAG_NONE,
+			&bufferDesc,
+			D3D12_RESOURCE_STATE_COPY_SOURCE,
+			nullptr,
+			IID_PPV_ARGS(&AliveIndexList1)));
 		device->CreateUnorderedAccessView(AliveIndexList1.Get(), AliveIndexList1.Get(), &uavDesc, descriptorHandle);
 
 		// Create counter resource for DeadIndexList as we want to place the counter on the heap to read from compute shaders as an SRV
@@ -672,7 +648,6 @@ bool ParticleGame::LoadContent()
 		// Entry 11, Post-processing texture
 		descriptorHandle.Offset(1, DescriptorSize);
 		CD3DX12_RESOURCE_DESC texDesc = CD3DX12_RESOURCE_DESC::Tex2D(DXGI_FORMAT_R8G8B8A8_UNORM, pWindow->GetWindowWidth(), pWindow->GetWindowHeight(), 1, 1, 1, 0, D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
-		CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
 		uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		uavDesc.ViewDimension = D3D12_UAV_DIMENSION_TEXTURE2D;
 		uavDesc.Texture2D.MipSlice = 0;
@@ -881,19 +856,19 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
 
 		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
-		const XMVECTOR focusPoint = XMVectorSet(0, 5, 5, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
 		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
 		float aspectRatio = GetWindowWidth() / static_cast<float>(GetWindowHeight());
-		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 2.0f, 30.0f);
+		XMMATRIX projectionMatrix = DirectX::XMMatrixPerspectiveFovLH(XMConvertToRadians(FoV), aspectRatio, 1.0f, 50.0f);
 
 		VSRootConstants.V = viewMatrix;
 		VSRootConstants.P = projectionMatrix;
 
 		PPRootConstants.invP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
-		//PPRootConstants.invP = XMMatrixInverse(nullptr, projectionMatrix);
 		PPRootConstants.invV = XMMatrixMultiply(viewMatrix, projectionMatrix);
+		//PPRootConstants.invP = XMMatrixInverse(nullptr, projectionMatrix);
 		//PPRootConstants.invV = projectionMatrix;
 		PPRootConstants.P = projectionMatrix;
 
@@ -973,13 +948,17 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->IASetVertexBuffers(0, 1, &VertexBufferView);
 		commandList->IASetIndexBuffer(&IndexBufferView);
 
-		// Render Room
 		commandList->SetPipelineState(PlaneRenderPSO.Get());
 		commandList->SetGraphicsRootSignature(RenderRS.Get());
 		commandList->SetGraphicsRoot32BitConstants(0, sizeof(VSRootConstants) / 4, reinterpret_cast<void*>(&VSRootConstants), 0);
 		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 10, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 9, DescriptorSize));
-		commandList->DrawIndexedInstanced(6, _countof(Planes), 0, 0, 0);
+
+		// Render Room
+		if (RenderRoom)
+		{
+			commandList->DrawIndexedInstanced(6, _countof(Planes), 0, 0, 0);
+		}
 
 		// SSAO Post-processing on room
 		if (UsePostProcess)
@@ -995,7 +974,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(dsv, 1, DescriptorSizeDSV);
 		commandList->OMSetRenderTargets(1, &descriptorHandleRTV, FALSE, &dsvHandle);
 		commandList->SetPipelineState(ParticleRenderPSO.Get());
-		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 5 + currentBackBufferIndex, DescriptorSize));
+		commandList->SetGraphicsRootDescriptorTable(1, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, UseCompute ? 5 + currentBackBufferIndex : 5, DescriptorSize));
 		commandList->SetGraphicsRootDescriptorTable(2, CD3DX12_GPU_DESCRIPTOR_HANDLE(descriptorHandle, 8, DescriptorSize));
 		commandList->DrawIndexedInstanced(6, MaxParticleCount, 0, 0, 0);
 
@@ -1088,6 +1067,9 @@ void ParticleGame::OnKeyPressed(KeyEventArgs& e)
 		break;
 	case KeyCode::E:
 		PressingE = true;
+		break;
+	case KeyCode::R:
+		RenderRoom = !RenderRoom;
 		break;
 	}
 }

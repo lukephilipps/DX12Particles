@@ -5,8 +5,6 @@ struct ParticleData
     float4 acceleration;
     float lifeTimeLeft;
     float scale;
-    
-    float buffer[50];
 };
 
 StructuredBuffer<ParticleData> Particles : register(t0);

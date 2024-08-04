@@ -32,8 +32,6 @@ private:
 	// Create a GPU buffer
 	void UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, 
 		size_t numElements, size_t elementSize, const void* bufferData, D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE);
-	void UpdateBufferResourceWithCounter(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
-		size_t bufferSize, const void* bufferData);
 	void UpdateTextureResourceFromFile(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource, std::wstring fileName);
 
 	// Resize the depth buffer to match the window area
@@ -46,8 +44,6 @@ private:
 		XMFLOAT4 acceleration;
 		float lifeTimeLeft;
 		float size;
-
-		float padding[50];
 	};
 
 	struct PlaneData
@@ -141,8 +137,9 @@ private:
 	bool ContentLoaded;
 	bool UseCompute;
 	bool UsePostProcess;
+	bool RenderRoom;
 
-	static const UINT MaxParticleCount = 1000;
+	static const UINT MaxParticleCount = 100;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 	ComPtr<ID3D12Resource> ParticleBuffer;
 	ComPtr<ID3D12Resource> AliveIndexList0;
