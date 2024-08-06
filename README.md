@@ -10,7 +10,9 @@ Emitters currently contain simple programmable attributes, such as:
 * Lifetime
 * Scale over lifetime
 
-![Image of the simulation.](https://github.com/lukephilipps/lukephilipps/blob/5296b6283495af5f030a637af7974a576314054a/Particles.gif)
+<img src="https://github.com/lukephilipps/lukephilipps/blob/351258d83017ff3066882d1308b2a0d4a46341a1/Particles_1.gif" alt="A sim with force fields." width="776"/>
+<img src="https://github.com/lukephilipps/lukephilipps/blob/fd41e33bd5a7605da1c1f272e32a44428d43d031/Particles_0.gif" alt="A simulation of a torch." width="776"/>
+<img src="https://github.com/lukephilipps/lukephilipps/blob/fd41e33bd5a7605da1c1f272e32a44428d43d031/Particles.png" alt="Image of the simulation." width="776"/>
 
 ## Next Additions
 This project is acting as my introduction to DX12 programming, and has been a wonderful learning experience. Moving forward my main two focuses are making the simulation more efficient and learning as much as I can.
