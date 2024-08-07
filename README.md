@@ -1,6 +1,6 @@
 # DX12 GPU-Based Particle Sim
 
-A GPU-based particle simulation implemented in DirectX 12. All buffers are staged in the GPU and the simulation is calculated via compute, leaving only command list building on the CPU.
+A GPU-based particle simulation utilizing DirectX 12. All buffers are staged in the GPU and the simulation is calculated via compute, leaving only command list building on the CPU.
 
 Emitters currently contain simple programmable attributes, such as:
 * Emit count per frame
