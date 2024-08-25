@@ -13,6 +13,7 @@ Emitters currently contain simple programmable attributes, such as:
 <img src="https://github.com/lukephilipps/lukephilipps/blob/351258d83017ff3066882d1308b2a0d4a46341a1/Particles_1.gif" alt="A sim with force fields." width="776"/>
 <img src="https://github.com/lukephilipps/lukephilipps/blob/fd41e33bd5a7605da1c1f272e32a44428d43d031/Particles_0.gif" alt="A simulation of a torch." width="776"/>
 <img src="https://github.com/lukephilipps/lukephilipps/blob/fd41e33bd5a7605da1c1f272e32a44428d43d031/Particles.png" alt="Image of the simulation." width="776"/>
+<p align="center"><img src="https://github.com/lukephilipps/lukephilipps/blob/63fad7702fcf405f7b4c0c137f84b3030c2ec82f/yippeee.gif" alt="The confetti creature."/></p>
 
 ## Next Additions
 This project is acting as my introduction to DX12 programming, and has been a wonderful learning experience. Moving forward my main two focuses are making the simulation more efficient and learning as much as I can.
