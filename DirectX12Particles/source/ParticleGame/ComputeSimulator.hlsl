@@ -45,8 +45,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         uint particleIndex = AliveIndices0.Consume();
         Particle particle = Particles[particleIndex];
 
-        particle.velocity.xyz += 5 * -normalize(particle.position).xyz * deltaTime;
-        //particle.velocity += particle.acceleration * deltaTime;
+        particle.velocity += particle.acceleration * deltaTime;
         particle.position += particle.velocity * deltaTime;
         particle.lifeTimeLeft -= deltaTime;
         particle.scale = lerp(particleEndScale, particleStartScale, particle.lifeTimeLeft / particleLifetime);

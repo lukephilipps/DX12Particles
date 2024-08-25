@@ -63,7 +63,7 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         
         randomValue0 = random(float2(deltaTime, randomValue2));
         randomValue1 = random(float2(randomValue0, randomValue1));
-        randomValue2 = random(float2(index * 15, particleIndex));
+        randomValue2 = random(float2(index * 5, particleIndex));
         
         newParticle.velocity = lerp(emitVelocityMin, emitVelocityMax, float4(randomValue1, randomValue2, randomValue0, 0));
         newParticle.acceleration = lerp(emitAccelerationMin, emitAccelerationMax, float4(randomValue2, randomValue0, randomValue1, 0));

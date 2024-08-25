@@ -13,47 +13,16 @@ struct VertexTexCoord
 	XMFLOAT2 TexCoord;
 };
 
+// Billboard vertices
 static VertexTexCoord Vertices[4] = {
-	// Billboard
 	{ XMFLOAT3(-1.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-
-	// Box faces (made some for each pair of sides for UV cords)
-	/*{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) }*/
+	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) }
 };
 
 static WORD Indices[6] = {
-	0, 1, 2, 0, 2, 3,
-	/*4, 6, 5, 4, 7, 6,
-	12, 13, 9, 12, 9, 8,
-	11, 10, 14, 11, 14, 15,
-	17, 21, 22, 17, 22, 18,
-	20, 16, 19, 20, 19, 23*/
+	0, 1, 2, 0, 2, 3
 };
 
 const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
@@ -66,7 +35,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, ContentLoaded(false)
 	, drawOffset(0)
 	, UseCompute(false)
-	, UsePostProcess(false)
+	, UsePostProcess(true)
 	, RenderRoom(false)
 	, deltaTime(0)
 	, PressingW(false)
@@ -625,7 +594,7 @@ bool ParticleGame::LoadContent()
 		// Entry 9, Planes Texture
 		descriptorHandle.Offset(1, DescriptorSize);
 		UpdateTextureResourceFromFile(commandList.Get(), &WallTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
-		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
+		srvDesc.Format = DXGI_FORMAT_BC3_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
@@ -759,18 +728,20 @@ void ParticleGame::ResizeDepthBuffer(int width, int height)
 			IID_PPV_ARGS(&DepthBuffer)
 		));
 
+		// recreate DSV in stencil heap
 		D3D12_DEPTH_STENCIL_VIEW_DESC dsv = {};
 		dsv.Format = DXGI_FORMAT_D32_FLOAT;
 		dsv.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
 		dsv.Texture2D.MipSlice = 0;
 		dsv.Flags = D3D12_DSV_FLAG_NONE;
-
 		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, DSVHeap->GetCPUDescriptorHandleForHeapStart());
 
+		// Create a second depth view without depth writing
 		dsv.Flags = D3D12_DSV_FLAG_READ_ONLY_DEPTH;
 		CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle = CD3DX12_CPU_DESCRIPTOR_HANDLE(DSVHeap->GetCPUDescriptorHandleForHeapStart(), 1, DescriptorSizeDSV);
 		device->CreateDepthStencilView(DepthBuffer.Get(), &dsv, dsvHandle);
 
+		// Create DSV to be read in compute SSAO
 		CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 12, DescriptorSize);
 		D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
 		srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
@@ -813,9 +784,11 @@ void ParticleGame::OnResize(ResizeEventArgs& e)
 			uavDesc.Texture2D.MipSlice = 0;
 			uavDesc.Texture2D.PlaneSlice = 0;
 
+			// Create view for compute SSAO 
 			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandle(DescriptorHeap->GetCPUDescriptorHandleForHeapStart(), 11, DescriptorSize);
 			device->CreateUnorderedAccessView(RenderTexture.Get(), nullptr, &uavDesc, descriptorHandle);
 
+			// Create view for rendering to
 			CD3DX12_CPU_DESCRIPTOR_HANDLE descriptorHandleRTV(RTVHeap->GetCPUDescriptorHandleForHeapStart(), 0, DescriptorSizeRTV);
 			device->CreateRenderTargetView(RenderTexture.Get(), nullptr, descriptorHandleRTV);
 
@@ -866,10 +839,11 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		VSRootConstants.V = viewMatrix;
 		VSRootConstants.P = projectionMatrix;
 
+		// incorrect names, was testing SSAO
 		PPRootConstants.invP = XMMatrixInverse(nullptr, XMMatrixMultiply(viewMatrix, projectionMatrix));
 		PPRootConstants.invV = XMMatrixMultiply(viewMatrix, projectionMatrix);
 		//PPRootConstants.invP = XMMatrixInverse(nullptr, projectionMatrix);
-		//PPRootConstants.invV = projectionMatrix;
+		//PPRootConstants.invV = XMMatrixInverse(nullptr, viewMatrix);
 		PPRootConstants.P = projectionMatrix;
 
 		CSRootConstants.deltaTime = deltaTime;

@@ -9,5 +9,5 @@ struct v2f
 
 float4 PSMain(v2f i) : SV_Target
 {
-    return Texture.Sample(PointSampler, i.UV).a * i.color;;
+    return Texture.Sample(PointSampler, i.UV).a * i.color;
 }
