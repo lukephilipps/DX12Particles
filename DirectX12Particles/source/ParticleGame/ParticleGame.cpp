@@ -18,42 +18,11 @@ static VertexTexCoord Vertices[4] = {
 	{ XMFLOAT3(-1.0f, -1.0f,  0.0f), XMFLOAT2(0.0f, 0.0f) },
 	{ XMFLOAT3(-1.0f,  1.0f,  0.0f), XMFLOAT2(0.0f, 1.0f) },
 	{ XMFLOAT3( 1.0f,  1.0f,  0.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) },
-
-	// Box faces (made some for each pair of sides for UV cords)
-	/*{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f, -1.0f), XMFLOAT2(0.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f, -1.0f), XMFLOAT2(1.0f, 0.0f) },
-	{ XMFLOAT3(-1.0f, -1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3(-1.0f,  1.0f,  1.0f), XMFLOAT2(0.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f,  1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) },
-	{ XMFLOAT3( 1.0f, -1.0f,  1.0f), XMFLOAT2(1.0f, 1.0f) }*/
+	{ XMFLOAT3( 1.0f, -1.0f,  0.0f), XMFLOAT2(1.0f, 0.0f) }
 };
 
 static WORD Indices[6] = {
-	0, 1, 2, 0, 2, 3,
-	/*4, 6, 5, 4, 7, 6,
-	12, 13, 9, 12, 9, 8,
-	11, 10, 14, 11, 14, 15,
-	17, 21, 22, 17, 22, 18,
-	20, 16, 19, 20, 19, 23*/
+	0, 1, 2, 0, 2, 3
 };
 
 const UINT ParticleGame::ParticleBufferCounterOffset = (sizeof(UINT) * MaxParticleCount + (D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1)) & ~(D3D12_UAV_COUNTER_PLACEMENT_ALIGNMENT - 1);
@@ -67,7 +36,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, drawOffset(0)
 	, UseCompute(false)
 	, UsePostProcess(false)
-	, RenderRoom(false)
+	, RenderRoom(true)
 	, deltaTime(0)
 	, PressingW(false)
 	, PressingA(false)
@@ -76,23 +45,23 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	, PressingQ(false)
 	, PressingE(false)
 {
-	CSRootConstants.particleLifetime = 35.0f;
-	CSRootConstants.emitCount = 100;
+	CSRootConstants.particleLifetime = 2.0f;
+	CSRootConstants.emitCount = 28;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-9.0f, -9.0f, -9.0f, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4( 9.0f,  9.0f,  9.0f, 0);
-	CSRootConstants.emitVelocityMin = XMFLOAT4(-1.0f, -1.0f, -3.0f, 0);
-	CSRootConstants.emitVelocityMax = XMFLOAT4( 1.0f,  1.0f,  3.0f, 0);
-	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.15f, 3.8f, -0.15f, 0);
-	CSRootConstants.emitAccelerationMax = XMFLOAT4( 0.15f, 4.8f,  0.15f, 0);
-	CSRootConstants.particleStartScale = 0.30f;
-	CSRootConstants.particleEndScale = 0.30f;
+	CSRootConstants.emitAABBMin = XMFLOAT4( 0.0f,  0.75f,  0.0f, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 0.0f,  0.75f,  0.0f, 0);
+	CSRootConstants.emitVelocityMin = XMFLOAT4(-0.5f,  2.5f, -1.5f, 0);
+	CSRootConstants.emitVelocityMax = XMFLOAT4( 0.5f,  25.0f,  1.5f, 0);
+	CSRootConstants.emitAccelerationMin = XMFLOAT4(-0.3f, 0.0f, -0.3f, 0);
+	CSRootConstants.emitAccelerationMax = XMFLOAT4( 0.3f, 0.0f,  0.3f, 0);
+	CSRootConstants.particleStartScale = 0.70f;
+	CSRootConstants.particleEndScale = 0.65f;
 
 	/*CSRootConstants.particleLifetime = 3.0f;
-	CSRootConstants.emitCount = 2;
+	CSRootConstants.emitCount = 4;
 	CSRootConstants.maxParticleCount = MaxParticleCount;
-	CSRootConstants.emitAABBMin = XMFLOAT4(-6, 0, -7, 0);
-	CSRootConstants.emitAABBMax = XMFLOAT4(6, 10, 11, 0);
+	CSRootConstants.emitAABBMin = XMFLOAT4(-10, -10, -11, 0);
+	CSRootConstants.emitAABBMax = XMFLOAT4( 10, 10,  11, 0);
 	CSRootConstants.emitVelocityMin = XMFLOAT4(-1, -1, -1, 0);
 	CSRootConstants.emitVelocityMax = XMFLOAT4(0, 0, 1, 0);
 	CSRootConstants.emitAccelerationMin = XMFLOAT4(0, 0, 0, 0);
@@ -104,7 +73,7 @@ ParticleGame::ParticleGame(const std::wstring& name, int width, int height, bool
 	PPRootConstants.noiseSize = NoiseSize;
 	PPRootConstants.kernelRadius = 1.0f;
 
-	CameraPosition = XMFLOAT4(0, 0, -15, 1);
+	CameraPosition = XMFLOAT4(0, 2.5, -15, 1);
 }
 
 void ParticleGame::UpdateBufferResource(ComPtr<ID3D12GraphicsCommandList2> commandList, ID3D12Resource** pDestinationResource, ID3D12Resource** pIntermediateResource,
@@ -348,9 +317,11 @@ bool ParticleGame::LoadContent()
 		CD3DX12_BLEND_DESC blendMode = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
 		blendMode.RenderTarget[0].BlendEnable = true;
 		blendMode.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA;
-		blendMode.RenderTarget[0].DestBlend = D3D12_BLEND_ONE;
+		blendMode.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA;
 		blendMode.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_SRC_ALPHA;
 		blendMode.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_DEST_ALPHA;
+		blendMode.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD;
+		blendMode.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD;
 
 		renderPSS.pRootSignature = RenderRS.Get();
 		renderPSS.InputLayout = { inputLayout, _countof(inputLayout) };
@@ -513,7 +484,7 @@ bool ParticleGame::LoadContent()
 			}
 		}
 
-		//std::srand(time(NULL)); // Re-seed RNG
+		std::srand(time(NULL)); // Re-seed RNG
 		for (UINT n = 0; n < KernelSize; ++n)
 		{
 			const double x = (static_cast<double>(std::rand()) / RAND_MAX) * 2 - 1;
@@ -625,7 +596,7 @@ bool ParticleGame::LoadContent()
 		// Entry 9, Planes Texture
 		descriptorHandle.Offset(1, DescriptorSize);
 		UpdateTextureResourceFromFile(commandList.Get(), &WallTexture, &intermediateWallsTextureBuffer, assetPathString + L"bathroomtile.dds");
-		srvDesc.Format = DXGI_FORMAT_BC1_UNORM;
+		srvDesc.Format = DXGI_FORMAT_BC3_UNORM;
 		srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		srvDesc.Texture2D.MostDetailedMip = 0;
 		srvDesc.Texture2D.MipLevels = 1;
@@ -856,7 +827,7 @@ void ParticleGame::OnUpdate(UpdateEventArgs& e)
 		CameraPosition.y += ((float)PressingE - (float)PressingQ) * deltaTime * CameraMoveSpeed;
 
 		const XMVECTOR eyePos = XMLoadFloat4(&CameraPosition);
-		const XMVECTOR focusPoint = XMVectorSet(0, 0, 0, 1);
+		const XMVECTOR focusPoint = XMVectorSet(0, 2.5, 0, 1);
 		const XMVECTOR upDirection = XMVectorSet(0, 1, 0, 1);
 		XMMATRIX viewMatrix = DirectX::XMMatrixLookAtLH(eyePos, focusPoint, upDirection);
 
@@ -940,7 +911,7 @@ void ParticleGame::OnRender(RenderEventArgs& e)
 		commandList->RSSetViewports(1, &Viewport);
 		commandList->RSSetScissorRects(1, &ScissorRect);
 
-		const FLOAT clearColor[] = { 0.0f, 0.0f, 0.0f, 1.0f };
+		const FLOAT clearColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
 		commandList->ClearRenderTargetView(descriptorHandleRTV, clearColor, 0, nullptr);
 		commandList->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
 

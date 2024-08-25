@@ -66,10 +66,11 @@ void CSMain(uint3 groupId : SV_GroupID, uint groupIndex : SV_GroupIndex)
         randomValue2 = random(float2(index * 15, particleIndex));
         
         newParticle.velocity = lerp(emitVelocityMin, emitVelocityMax, float4(randomValue1, randomValue2, randomValue0, 0));
+        newParticle.velocity.x += sign(newParticle.velocity.x) * newParticle.velocity.y * randomValue0 / 1.5f;
         newParticle.acceleration = lerp(emitAccelerationMin, emitAccelerationMax, float4(randomValue2, randomValue0, randomValue1, 0));
         newParticle.lifeTimeLeft = particleLifetime;
         newParticle.scale = particleStartScale;
-        newParticle.color = float4(randomValue0, randomValue1, randomValue2, 1);
+        newParticle.color = float4(1, 1, 1, 1);
         
         Particles[particleIndex] = newParticle;
         AliveIndices0.Append(particleIndex);

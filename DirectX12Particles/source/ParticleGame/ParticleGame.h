@@ -140,7 +140,7 @@ private:
 	bool UsePostProcess;
 	bool RenderRoom;
 
-	static const UINT MaxParticleCount = 10000;
+	static const UINT MaxParticleCount = 20;
 	static const UINT ParticleResourceCount = MaxParticleCount * Window::BufferCount;
 	ComPtr<ID3D12Resource> ParticleBuffer;
 	ComPtr<ID3D12Resource> AliveIndexList0;
@@ -173,37 +173,40 @@ private:
 	static const UINT KernelSize = 32;
 	static const UINT NoiseSize = 4;
 
-	PlaneData Planes[14] = {
-		// Bordering walls
-		{ XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.8f, XMConvertToRadians(90) }, // Bottom
-		{ XMFLOAT4(-5.0f, 5.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 5.1f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.0f, 2.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(270) }, // Left
-		{ XMFLOAT4(0.0f, 10.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.0f, XMConvertToRadians(270) }, // Top
-		{ XMFLOAT4(0.0f, 5.0f, 10.0f, 1.0f), XMFLOAT4(0, 0, 0, 0), XMFLOAT4(5.1f, 5.1f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(0) }, // Back
-		{ XMFLOAT4(5.0f, 2.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.0f, 2.0f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.0f, 2.0f, 0.0f, 0.4f), 1.0f, XMConvertToRadians(90) }, // Right 0
-		{ XMFLOAT4(5.0f, 8.5f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.0f, 2.0f, 0.7f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right 1
-		{ XMFLOAT4(5.0f, 5.5f, 8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(2.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.0f, 0.4f, 0.4f, 0.7f), 1.0f, XMConvertToRadians(90) }, // Right 2
-		{ XMFLOAT4(5.0f, 5.5f, -4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(6.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
-			XMFLOAT4(0.8f, 2.0f, 0.4f, 0.7f), 1.0f, XMConvertToRadians(90) }, // Right 3
+	PlaneData Planes[1] = {
+		{ XMFLOAT4(0.0f, 2.5f, 2.0f, 1.0f), XMFLOAT4(0, 0, 0, 0), XMFLOAT4(2.5f, 2.5f, 1.0f, 1.0f), XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f),
+			XMFLOAT4(0.0f, 1.0f, 1.0f, 0.0f), 0.0f, XMConvertToRadians(0) }
 
-		// Baseboards
-		{ XMFLOAT4(-4.9f, 0.5f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(0.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Left-top
-		{ XMFLOAT4(-4.8f, 0.25f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(270) }, // Left-side
-		{ XMFLOAT4(4.9f, 0.5f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(0.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right-top
-		{ XMFLOAT4(4.8f, 0.25f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right-side
-		{ XMFLOAT4(0.0f, 0.5f, 9.9f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.8f, 0.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.0f, XMConvertToRadians(90) }, // Back-top
-		{ XMFLOAT4(0.0f, 0.25f, 9.8f, 1.0f), XMFLOAT4(0, 0, 0, 0), XMFLOAT4(4.8f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
-			XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(0) }, // Back-side
+		// Bordering walls
+		//{ XMFLOAT4(0.0f, 0.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.7f, 0.7f, 0.7f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.8f, XMConvertToRadians(90) }, // Bottom
+		//{ XMFLOAT4(-5.0f, 5.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 5.1f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.0f, 2.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(270) }, // Left
+		//{ XMFLOAT4(0.0f, 10.0f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(5.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.9f, 0.9f, 0.9f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.0f, XMConvertToRadians(270) }, // Top
+		//{ XMFLOAT4(0.0f, 5.0f, 10.0f, 1.0f), XMFLOAT4(0, 0, 0, 0), XMFLOAT4(5.1f, 5.1f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(0) }, // Back
+		//{ XMFLOAT4(5.0f, 2.0f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.0f, 2.0f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.0f, 2.0f, 0.0f, 0.4f), 1.0f, XMConvertToRadians(90) }, // Right 0
+		//{ XMFLOAT4(5.0f, 8.5f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.0f, 2.0f, 0.7f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right 1
+		//{ XMFLOAT4(5.0f, 5.5f, 8.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(2.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.0f, 0.4f, 0.4f, 0.7f), 1.0f, XMConvertToRadians(90) }, // Right 2
+		//{ XMFLOAT4(5.0f, 5.5f, -4.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(6.0f, 1.5f, 1.0f, 1.0f), XMFLOAT4(0.6f, 0.7f, 0.6f, 1.0f),
+		//	XMFLOAT4(0.8f, 2.0f, 0.4f, 0.7f), 1.0f, XMConvertToRadians(90) }, // Right 3
+
+		//// Baseboards
+		//{ XMFLOAT4(-4.9f, 0.5f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(0.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Left-top
+		//{ XMFLOAT4(-4.8f, 0.25f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(270) }, // Left-side
+		//{ XMFLOAT4(4.9f, 0.5f, 0.0f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(0.1f, 10.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right-top
+		//{ XMFLOAT4(4.8f, 0.25f, 0.0f, 1.0f), XMFLOAT4(0, 1, 0, 0), XMFLOAT4(10.1f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(90) }, // Right-side
+		//{ XMFLOAT4(0.0f, 0.5f, 9.9f, 1.0f), XMFLOAT4(1, 0, 0, 0), XMFLOAT4(4.8f, 0.1f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 2.0f), 1.0f, XMConvertToRadians(90) }, // Back-top
+		//{ XMFLOAT4(0.0f, 0.25f, 9.8f, 1.0f), XMFLOAT4(0, 0, 0, 0), XMFLOAT4(4.8f, 0.25f, 1.0f, 1.0f), XMFLOAT4(0.82f, 0.71f, 0.62f, 1.0f),
+		//	XMFLOAT4(0.0f, 1.0f, 0.0f, 1.0f), 1.0f, XMConvertToRadians(0) }, // Back-side
 	};
 };
